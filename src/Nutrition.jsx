@@ -1,213 +1,191 @@
 import React, { useEffect, useState } from "react";
-import { Pencil, Plus, X, Apple } from "lucide-react";
-import { C, todayKey, addDaysKey, fmtNice } from "./helpers";
-import { Card, SectionLabel, Ring, MacroBar, PrimaryButton, GhostButton, TextField, Sheet, EmptyState } from "./ui";
-import { getNutritionGoal, saveNutritionGoal, getNutritionDay, saveNutritionDay, listSavedFoods, addSavedFood } from "./api";
+import { Home, Dumbbell, Apple, Footprints, Trophy, Camera } from "lucide-react";
+import { C } from "./helpers";
+import { supabase } from "./supabaseClient";
+import { getCurrentSession, signOut, listClients } from "./api";
+import Header from "./Header";
+import BottomNav from "./BottomNav";
+import { Toast, StorageBanner } from "./ui";
 
-export default function Nutrition({ clientId, showToast }) {
-  const [loading, setLoading] = useState(true);
-  const [goal, setGoal] = useState({ cal: 2200, protein: 160, carb: 220, fat: 70 });
-  const [dateKey, setDateKey] = useState(todayKey());
-  const [meals, setMeals] = useState([]);
-  const [savedFoods, setSavedFoods] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [showGoals, setShowGoals] = useState(false);
+import AuthScreen from "./AuthScreen";
+import Roster from "./Roster";
+import ProfileMenuSheet from "./ProfileMenuSheet";
+import Home_ from "./Home";
+import Train from "./Train";
+import Nutrition from "./Nutrition";
+import Activity from "./Activity";
+import Progress from "./Progress";
+import Photos from "./Photos";
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [g, sf] = await Promise.all([getNutritionGoal(clientId), listSavedFoods(clientId)]);
-      if (cancelled) return;
-      setGoal(g);
-      setSavedFoods(sf);
-    })();
-    return () => { cancelled = true; };
-  }, [clientId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      const m = await getNutritionDay(clientId, dateKey);
-      if (cancelled) return;
-      setMeals(m);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [clientId, dateKey]);
-
-  const totals = meals.reduce(
-    (acc, m) => ({ cal: acc.cal + Number(m.cal || 0), protein: acc.protein + Number(m.protein || 0), carb: acc.carb + Number(m.carb || 0), fat: acc.fat + Number(m.fat || 0) }),
-    { cal: 0, protein: 0, carb: 0, fat: 0 }
-  );
-
-  async function addMeal(meal) {
-    const next = [...meals, meal];
-    setMeals(next);
-    await saveNutritionDay(clientId, dateKey, next);
-    showToast("Meal logged");
-  }
-  async function removeMeal(idx) {
-    const next = meals.filter((_, i) => i !== idx);
-    setMeals(next);
-    await saveNutritionDay(clientId, dateKey, next);
-  }
-  async function saveGoal(g) {
-    setGoal(g);
-    await saveNutritionGoal(clientId, g);
-    setShowGoals(false);
-    showToast("Goals updated");
-  }
-  async function saveFoodForLater(food) {
-    await addSavedFood(clientId, food);
-    setSavedFoods((prev) => [food, ...prev.filter((f) => f.name !== food.name)].slice(0, 40));
-  }
-
+function Frame({ children }) {
   return (
-    <div style={{ padding: "18px 18px 90px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 22, color: C.ink, margin: 0 }}>Nutrition</h2>
-        <button onClick={() => setShowGoals(true)} style={{ background: C.stone, border: "none", borderRadius: 999, padding: 7 }}>
-          <Pencil size={15} color={C.pine} />
-        </button>
+    <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: C.stone, minHeight: "100vh", display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 480, background: C.paper, minHeight: "100vh", position: "relative", boxShadow: "0 0 40px rgba(0,0,0,0.04)" }}>
+        {children}
       </div>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 0" }}>
-        <button onClick={() => setDateKey(addDaysKey(dateKey, -1))} style={{ background: C.stone, border: "none", borderRadius: 999, padding: 6 }}>
-          ‹
-        </button>
-        <span style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>{dateKey === todayKey() ? "Today" : fmtNice(dateKey)}</span>
-        <button
-          onClick={() => setDateKey(addDaysKey(dateKey, 1))}
-          disabled={dateKey >= todayKey()}
-          style={{ background: C.stone, border: "none", borderRadius: 999, padding: 6, opacity: dateKey >= todayKey() ? 0.35 : 1 }}
-        >
-          ›
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ padding: 30, textAlign: "center", color: C.graphite, fontSize: 13 }}>Loading…</div>
-      ) : (
-        <>
-          <Card>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-              <Ring value={totals.cal} max={goal.cal} size={76} color={C.amber} label={totals.cal} sub="kcal" />
-              <div style={{ flex: 1 }}>
-                <MacroBar label="Protein" value={totals.protein} goal={goal.protein} color={C.pine} />
-                <MacroBar label="Carbs" value={totals.carb} goal={goal.carb} color={C.gold} />
-                <MacroBar label="Fat" value={totals.fat} goal={goal.fat} color={C.danger} />
-              </div>
-            </div>
-          </Card>
-
-          <SectionLabel right={<button onClick={() => setShowAdd(true)} style={{ background: "none", border: "none", color: C.pine, fontWeight: 700, fontSize: 12.5, display: "flex", alignItems: "center", gap: 4 }}><Plus size={14} />Add meal</button>}>
-            Logged today
-          </SectionLabel>
-
-          {meals.length === 0 && <EmptyState icon={Apple} title="Nothing logged yet" sub="Tap Add meal to log food." />}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {meals.map((m, i) => (
-              <Card key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: C.graphite }}>{m.cal} kcal · P{m.protein} C{m.carb} F{m.fat}</div>
-                </div>
-                <button onClick={() => removeMeal(i)} style={{ background: "none", border: "none" }}><X size={16} color={C.graphite} /></button>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {showAdd && (
-        <AddMealSheet
-          onClose={() => setShowAdd(false)}
-          onAdd={(meal) => { addMeal(meal); setShowAdd(false); }}
-          savedFoods={savedFoods}
-          onSaveFood={saveFoodForLater}
-        />
-      )}
-      {showGoals && <NutritionGoalsSheet goal={goal} onClose={() => setShowGoals(false)} onSave={saveGoal} />}
     </div>
   );
 }
 
-function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
-  const [tab, setTab] = useState(savedFoods.length ? "saved" : "new");
-  const [name, setName] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carb, setCarb] = useState("");
-  const [fat, setFat] = useState("");
-  const [remember, setRemember] = useState(true);
+export default function App() {
+  const [booting, setBooting] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [viewingClientId, setViewingClientId] = useState(null);
+  const [viewingClient, setViewingClient] = useState(null);
+  const [clientList, setClientList] = useState([]);
+  const [tab, setTab] = useState("home");
+  const [toast, setToast] = useState("");
+  const [hideNav, setHideNav] = useState(false);
+  const [authError, setAuthError] = useState("");
 
-  const cal = (Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9;
-
-  function submitNew() {
-    if (!name.trim()) return;
-    const meal = { name: name.trim(), cal, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 };
-    if (remember) onSaveFood(meal);
-    onAdd(meal);
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 1800);
   }
 
-  return (
-    <Sheet title="Add meal" onClose={onClose}>
-      <div style={{ display: "flex", background: C.stone, borderRadius: 12, padding: 4, marginBottom: 16 }}>
-        <button onClick={() => setTab("saved")} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 13, background: tab === "saved" ? C.paper : "transparent", color: tab === "saved" ? C.ink : C.graphite }}>Saved foods</button>
-        <button onClick={() => setTab("new")} style={{ flex: 1, padding: "8px 0", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 13, background: tab === "new" ? C.paper : "transparent", color: tab === "new" ? C.ink : C.graphite }}>Quick add</button>
-      </div>
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = await getCurrentSession();
+        if (user) {
+          setCurrentUser(user);
+          if (user.role === "client") setViewingClientId(user.id);
+        }
+      } catch (err) {
+        console.error(err);
+        setAuthError("Couldn't reach the server. Check your Supabase setup in .env.");
+      }
+      setBooting(false);
+    })();
 
-      {tab === "saved" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
-          {savedFoods.length === 0 && <EmptyState icon={Apple} title="No saved foods yet" sub="Quick-add a meal and save it to reuse here." />}
-          {savedFoods.map((f, i) => (
-            <button key={i} onClick={() => onAdd(f)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.stone, border: "none", borderRadius: 12, padding: "11px 13px", textAlign: "left" }}>
-              <div>
-                <div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{f.name}</div>
-                <div style={{ fontSize: 12, color: C.graphite }}>{f.cal} kcal · P{f.protein} C{f.carb} F{f.fat}</div>
-              </div>
-              <Plus size={16} color={C.pine} />
-            </button>
-          ))}
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setCurrentUser(null);
+        setViewingClientId(null);
+      }
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // load roster when a trainer has no client selected
+  useEffect(() => {
+    if (currentUser?.role === "trainer" && !viewingClientId) {
+      listClients().then(setClientList).catch(console.error);
+    }
+  }, [currentUser, viewingClientId]);
+
+  // resolve the viewed client's profile/name for trainers
+  useEffect(() => {
+    if (currentUser?.role === "trainer" && viewingClientId) {
+      const c = clientList.find((c) => c.id === viewingClientId);
+      if (c) setViewingClient(c);
+      else listClients().then((list) => {
+        setClientList(list);
+        setViewingClient(list.find((c) => c.id === viewingClientId) || null);
+      });
+    }
+  }, [viewingClientId, currentUser]);
+
+  async function handleAuthed(user) {
+    setCurrentUser(user);
+    if (user.role === "client") {
+      setViewingClientId(user.id);
+    }
+  }
+
+  async function handleLogout() {
+    await signOut();
+    setCurrentUser(null);
+    setViewingClientId(null);
+    setViewingClient(null);
+    setShowProfileMenu(false);
+    setTab("home");
+  }
+
+  const tabs = [
+    { key: "home", label: "Home", icon: Home },
+    { key: "train", label: "Train", icon: Dumbbell },
+    { key: "nutrition", label: "Macros", icon: Apple },
+    { key: "activity", label: "Activity", icon: Footprints },
+    { key: "progress", label: "Progress", icon: Trophy },
+    { key: "photos", label: "Photos", icon: Camera },
+  ];
+
+  if (booting) {
+    return (
+      <Frame>
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: C.graphite, fontSize: 13 }}>
+          Loading…
         </div>
-      ) : (
-        <div>
-          <TextField label="Food / meal name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chicken & rice bowl" />
-          <div style={{ background: C.pineTint, borderRadius: 12, padding: "10px 14px", marginBottom: 13, textAlign: "center" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em" }}>Calories (auto-calculated)</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: C.pineDeep, fontFamily: "Playfair Display, serif" }}>{cal} kcal</div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-            <TextField label="Carbs (g)" inputMode="numeric" value={carb} onChange={(e) => setCarb(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-            <TextField label="Fat (g)" inputMode="numeric" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 13, color: C.graphite }}>
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-            Save to my foods for next time
-          </label>
-          <PrimaryButton onClick={submitNew} disabled={!name.trim()}>Log it</PrimaryButton>
+      </Frame>
+    );
+  }
+
+  if (authError) {
+    return (
+      <Frame>
+        <div style={{ padding: 30 }}>
+          <StorageBanner text={authError} />
         </div>
+      </Frame>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <Frame>
+        <AuthScreen onAuthed={handleAuthed} />
+      </Frame>
+    );
+  }
+
+  // trainer with no client selected -> roster
+  if (currentUser.role === "trainer" && !viewingClientId) {
+    return (
+      <Frame>
+        <Header profile={currentUser} onOpenProfileMenu={() => setShowProfileMenu(true)} />
+        <Roster clients={clientList} onSelect={(id) => { setViewingClientId(id); setTab("home"); }} />
+        <BottomNav tabs={[{ key: "home", label: "Clients", icon: Home }]} active="home" onChange={() => {}} />
+        {showProfileMenu && <ProfileMenuSheet user={currentUser} onClose={() => setShowProfileMenu(false)} onLogout={handleLogout} />}
+      </Frame>
+    );
+  }
+
+  const isTrainerViewing = currentUser.role === "trainer";
+  const viewingName = isTrainerViewing ? viewingClient?.name || "…" : currentUser.name;
+  const dataClientId = isTrainerViewing ? viewingClientId : currentUser.id;
+
+  return (
+    <Frame>
+      <Header
+        profile={currentUser}
+        coachingClient={isTrainerViewing ? viewingClient : null}
+        onSwitchClient={() => setViewingClientId(null)}
+        onOpenProfileMenu={() => setShowProfileMenu(true)}
+      />
+
+      {tab === "home" && (
+        <Home_ clientId={dataClientId} clientName={viewingName} isTrainerViewing={isTrainerViewing} goTab={setTab} />
       )}
-    </Sheet>
-  );
-}
+      {tab === "train" && (
+        <Train
+          clientId={dataClientId}
+          viewerRole={currentUser.role}
+          viewerName={currentUser.name}
+          viewingClientName={viewingName}
+          showToast={showToast}
+          onFullscreenChange={setHideNav}
+        />
+      )}
+      {tab === "nutrition" && <Nutrition clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
+      {tab === "activity" && <Activity clientId={dataClientId} showToast={showToast} />}
+      {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} />}
+      {tab === "photos" && <Photos clientId={dataClientId} showToast={showToast} />}
 
-function NutritionGoalsSheet({ goal, onClose, onSave }) {
-  const [protein, setProtein] = useState(goal.protein);
-  const [carb, setCarb] = useState(goal.carb);
-  const [fat, setFat] = useState(goal.fat);
-  const cal = (Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9;
-  return (
-    <Sheet title="Daily goals" onClose={onClose}>
-      <div style={{ background: C.pineTint, borderRadius: 12, padding: "12px 14px", marginBottom: 14, textAlign: "center" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em" }}>Calorie goal (auto-calculated)</div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: C.pineDeep, fontFamily: "Playfair Display, serif" }}>{cal} kcal</div>
-      </div>
-      <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} />
-      <TextField label="Carbs (g)" inputMode="numeric" value={carb} onChange={(e) => setCarb(e.target.value)} />
-      <TextField label="Fat (g)" inputMode="numeric" value={fat} onChange={(e) => setFat(e.target.value)} />
-      <PrimaryButton onClick={() => onSave({ cal, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 })}>Save goals</PrimaryButton>
-    </Sheet>
+      {!hideNav && <BottomNav tabs={tabs} active={tab} onChange={setTab} />}
+      {showProfileMenu && <ProfileMenuSheet user={currentUser} onClose={() => setShowProfileMenu(false)} onLogout={handleLogout} />}
+      <Toast text={toast} />
+    </Frame>
   );
 }
