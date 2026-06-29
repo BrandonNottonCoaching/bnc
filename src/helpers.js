@@ -162,3 +162,32 @@ export const C = {
   danger: "#A23B2E",
   gold: "#9C8242",
 };
+
+/* Weekly check-in is due every Monday.
+   Given the date of the most recent check-in (YYYY-MM-DD string or null),
+   returns { dueToday, daysUntil, overdue } relative to today. */
+export function checkInStatus(lastCheckInDate) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dow = today.getDay(); // 0 Sun, 1 Mon, ... 6 Sat
+
+  const daysSinceMonday = (dow + 6) % 7;
+  const lastMonday = new Date(today);
+  lastMonday.setDate(today.getDate() - daysSinceMonday);
+
+  const daysUntil = (1 - dow + 7) % 7; // 0 if Monday
+
+  let doneThisWeek = false;
+  if (lastCheckInDate) {
+    const [y, m, d] = lastCheckInDate.split("-").map(Number);
+    const last = new Date(y, m - 1, d);
+    doneThisWeek = last >= lastMonday;
+  }
+
+  return {
+    doneThisWeek,
+    daysUntil,
+    dueToday: dow === 1 && !doneThisWeek,
+    overdue: !doneThisWeek && daysSinceMonday > 0,
+  };
+}
