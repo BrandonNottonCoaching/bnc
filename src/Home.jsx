@@ -95,4 +95,39 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
         {lastWorkout ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontWeight: 600, color: C.ink
+              <div style={{ fontWeight: 600, color: C.ink }}>{lastWorkout.sessionName}</div>
+              <div style={{ fontSize: 12.5, color: C.graphite }}>
+                {daysAgo === 0 ? "Logged today" : `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`}
+                {lastWorkout.loggedWith ? ` · with ${lastWorkout.loggedWith}` : ""}
+              </div>
+            </div>
+            <Dumbbell size={20} color={C.pine} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ color: C.graphite, fontSize: 14 }}>No sessions logged yet</span>
+            <Dumbbell size={20} color={C.graphite} />
+          </div>
+        )}
+      </Card>
+
+      <SectionLabel>Progress photos</SectionLabel>
+      <Card onClick={() => goTab("photos")} style={{ cursor: "pointer" }}>
+        {lastPhoto ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <img src={lastPhoto.image} style={{ width: 50, height: 50, borderRadius: 10, objectFit: "cover" }} />
+            <div>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>Latest photo</div>
+              <div style={{ fontSize: 12.5, color: C.graphite }}>{fmtNice(lastPhoto.date)}</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ color: C.graphite, fontSize: 14 }}>No photos yet</span>
+            <Camera size={20} color={C.graphite} />
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
