@@ -246,3 +246,58 @@ export async function deletePhoto(id, path) {
   const { error } = await supabase.from("photos").delete().eq("id", id);
   if (error) throw error;
 }
+
+/* ============== Check-ins ============== */
+
+export async function listCheckIns(clientId) {
+  const { data, error } = await supabase
+    .from("check_ins")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCheckIn(clientId, entry) {
+  const { error } = await supabase.from("check_ins").insert({ client_id: clientId, ...entry });
+  if (error) throw error;
+}
+
+export async function deleteCheckIn(id) {
+  const { error } = await supabase.from("check_ins").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ============== Coach check-in review tracking ============== */
+
+export async function latestCheckInPerClient() {
+  const { data, error } = await supabase
+    .from("check_ins")
+    .select("client_id, date")
+    .order("date", { ascending: false });
+  if (error) throw error;
+  const map = {};
+  (data || []).forEach((row) => {
+    if (!map[row.client_id]) map[row.client_id] = row.date;
+  });
+  return map;
+}
+
+export async function getCoachViews(coachId) {
+  const { data, error } = await supabase
+    .from("coach_views")
+    .select("client_id, last_viewed")
+    .eq("coach_id", coachId);
+  if (error) throw error;
+  const map = {};
+  (data || []).forEach((row) => { map[row.client_id] = row.last_viewed; });
+  return map;
+}
+
+export async function markClientViewed(coachId, clientId) {
+  const { error } = await supabase
+    .from("coach_views")
+    .upsert({ coach_id: coachId, client_id: clientId, last_viewed: new Date().toISOString() }, { onConflict: "coach_id,client_id" });
+  if (error) throw error;
+}
