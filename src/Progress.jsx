@@ -69,12 +69,12 @@ export default function Progress({ clientId, showToast }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: latest ? 14 : 4 }}>
           <div>
             <div style={{ fontSize: 26, fontWeight: 700, color: C.ink, fontFamily: "Playfair Display, serif" }}>
-              {latest ? `${latest.weight}kg` : "—"}
+              {latest ? `${latest.weight} lbs` : "—"}
             </div>
             {weightDiff !== null && (
               <div style={{ fontSize: 12.5, color: C.graphite, display: "flex", alignItems: "center", gap: 4 }}>
                 <TrendingUp size={13} color={weightDiff < 0 ? C.pine : weightDiff > 0 ? C.amber : C.graphite} style={{ transform: weightDiff < 0 ? "scaleY(-1)" : "none" }} />
-                {weightDiff > 0 ? "+" : ""}{weightDiff.toFixed(1)}kg since {fmtShort(first.date)}
+                {weightDiff > 0 ? "+" : ""}{weightDiff.toFixed(1)} lbs since {fmtShort(first.date)}
               </div>
             )}
           </div>
@@ -107,7 +107,7 @@ export default function Progress({ clientId, showToast }) {
           {sortedEntries.slice().reverse().slice(0, 5).map((e) => (
             <div key={e.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: C.stone, borderRadius: 10 }}>
               <span style={{ fontSize: 12.5, color: C.graphite }}>{fmtNice(e.date)}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{e.weight}kg</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{e.weight} lbs</span>
               <button onClick={() => removeWeight(e.id)} style={{ background: "none", border: "none" }}><X size={13} color={C.graphite} /></button>
             </div>
           ))}
@@ -122,10 +122,10 @@ export default function Progress({ clientId, showToast }) {
         Strength since you started
       </SectionLabel>
       <p style={{ fontSize: 11.5, color: C.graphite, marginTop: -4, marginBottom: 12 }}>
-        Based on total volume (weight × reps × sets) per exercise, not just the weight on the bar.
+        Based on total volume (weight × reps × sets). A % appears once you've logged the same exercise on two or more separate days — keep training and it'll fill in.
       </p>
 
-      {exercises.length === 0 && <EmptyState icon={Trophy} title="No lifts tracked yet" sub="Log a session with weights to start building your strength history." />}
+      {exercises.length === 0 && <EmptyState icon={Trophy} title="No lifts tracked yet" sub="Log a session with weights and reps filled in to start building your strength history." />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {exercises.map((e) => (
@@ -165,7 +165,7 @@ function LogWeightSheet({ onClose, onSave }) {
   return (
     <Sheet title="Log body weight" onClose={onClose}>
       <TextField label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} max={todayKey()} />
-      <TextField label="Weight (kg)" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" autoFocus />
+      <TextField label="Weight (lbs)" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.0" autoFocus />
       <PrimaryButton disabled={!weight} onClick={() => onSave(date, Number(weight))}>Save</PrimaryButton>
     </Sheet>
   );
