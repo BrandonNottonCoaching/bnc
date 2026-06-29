@@ -230,21 +230,27 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
 
             {row.sets.map((s, si) => (
               <div key={si} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11.5, color: C.graphite, width: 16 }}>{si + 1}</span>
-                <input
-                  placeholder="kg"
-                  inputMode="decimal"
-                  value={s.weight}
-                  onChange={(e) => updateSet(ri, si, "weight", e.target.value)}
-                  style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, background: "#fff" }}
-                />
-                <input
-                  placeholder="reps"
-                  inputMode="numeric"
-                  value={s.reps}
-                  onChange={(e) => updateSet(ri, si, "reps", e.target.value)}
-                  style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, background: "#fff" }}
-                />
+                <span style={{ fontSize: 11.5, color: C.graphite, width: 16, flexShrink: 0 }}>{si + 1}</span>
+                <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+                  <input
+                    placeholder="0"
+                    inputMode="decimal"
+                    value={s.weight}
+                    onChange={(e) => updateSet(ri, si, "weight", e.target.value)}
+                    style={{ width: "100%", padding: "8px 34px 8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, background: "#fff", boxSizing: "border-box" }}
+                  />
+                  <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: C.graphite, pointerEvents: "none" }}>kg</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+                  <input
+                    placeholder="0"
+                    inputMode="numeric"
+                    value={s.reps}
+                    onChange={(e) => updateSet(ri, si, "reps", e.target.value)}
+                    style={{ width: "100%", padding: "8px 44px 8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, background: "#fff", boxSizing: "border-box" }}
+                  />
+                  <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: C.graphite, pointerEvents: "none" }}>reps</span>
+                </div>
               </div>
             ))}
             <button onClick={() => addSet(ri)} style={{ background: "none", border: "none", color: C.pine, fontSize: 12.5, fontWeight: 600, padding: "4px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
