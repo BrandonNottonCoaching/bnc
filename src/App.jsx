@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Home, Dumbbell, Apple, Footprints, Trophy, Camera } from "lucide-react";
+import { Home, Dumbbell, Apple, Footprints, Trophy, Camera, ClipboardCheck } from "lucide-react";
 import { C } from "./helpers";
 import { supabase } from "./supabaseClient";
-import { getCurrentSession, signOut, listClients } from "./api";
+import { getCurrentSession, signOut, listClients, latestCheckInPerClient, getCoachViews, markClientViewed } from "./api";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { Toast, StorageBanner } from "./ui";
@@ -16,6 +16,7 @@ import Nutrition from "./Nutrition";
 import Activity from "./Activity";
 import Progress from "./Progress";
 import Photos from "./Photos";
+import CheckIn from "./CheckIn";
 
 function Frame({ children }) {
   return (
@@ -34,6 +35,7 @@ export default function App() {
   const [viewingClientId, setViewingClientId] = useState(null);
   const [viewingClient, setViewingClient] = useState(null);
   const [clientList, setClientList] = useState([]);
+  const [unreadIds, setUnreadIds] = useState([]);
   const [tab, setTab] = useState("home");
   const [toast, setToast] = useState("");
   const [hideNav, setHideNav] = useState(false);
@@ -72,8 +74,40 @@ export default function App() {
   useEffect(() => {
     if (currentUser?.role === "trainer" && !viewingClientId) {
       listClients().then(setClientList).catch(console.error);
+      refreshUnread();
     }
   }, [currentUser, viewingClientId]);
+
+  async function refreshUnread() {
+    if (!currentUser || currentUser.role !== "trainer") return;
+    try {
+      const [latest, views] = await Promise.all([
+        latestCheckInPerClient(),
+        getCoachViews(currentUser.id),
+      ]);
+      const unread = Object.keys(latest).filter((clientId) => {
+        const lastViewed = views[clientId];
+        if (!lastViewed) return true;
+        return new Date(latest[clientId]) > new Date(lastViewed);
+      });
+      setUnreadIds(unread);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function openClient(id) {
+    setViewingClientId(id);
+    setTab("home");
+    setUnreadIds((prev) => prev.filter((x) => x !== id));
+    if (currentUser?.role === "trainer") {
+      try {
+        await markClientViewed(currentUser.id, id);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
 
   // resolve the viewed client's profile/name for trainers
   useEffect(() => {
@@ -108,6 +142,7 @@ export default function App() {
     { key: "train", label: "Train", icon: Dumbbell },
     { key: "nutrition", label: "Macros", icon: Apple },
     { key: "activity", label: "Activity", icon: Footprints },
+    { key: "checkin", label: "Check-in", icon: ClipboardCheck },
     { key: "progress", label: "Progress", icon: Trophy },
     { key: "photos", label: "Photos", icon: Camera },
   ];
@@ -145,7 +180,7 @@ export default function App() {
     return (
       <Frame>
         <Header profile={currentUser} onOpenProfileMenu={() => setShowProfileMenu(true)} />
-        <Roster clients={clientList} onSelect={(id) => { setViewingClientId(id); setTab("home"); }} />
+        <Roster clients={clientList} unreadIds={unreadIds} onSelect={openClient} />
         <BottomNav tabs={[{ key: "home", label: "Clients", icon: Home }]} active="home" onChange={() => {}} />
         {showProfileMenu && <ProfileMenuSheet user={currentUser} onClose={() => setShowProfileMenu(false)} onLogout={handleLogout} />}
       </Frame>
@@ -180,6 +215,7 @@ export default function App() {
       )}
       {tab === "nutrition" && <Nutrition clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
       {tab === "activity" && <Activity clientId={dataClientId} showToast={showToast} />}
+      {tab === "checkin" && <CheckIn clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
       {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} />}
       {tab === "photos" && <Photos clientId={dataClientId} showToast={showToast} />}
 
