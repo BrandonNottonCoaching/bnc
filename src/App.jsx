@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Home, Dumbbell, Apple, Footprints, Trophy, Camera } from "lucide-react";
-import { C, seedProgram } from "./helpers";
+import { C } from "./helpers";
 import { supabase } from "./supabaseClient";
-import { getCurrentSession, signOut, listClients, saveProgram } from "./api";
+import { getCurrentSession, signOut, listClients } from "./api";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { Toast, StorageBanner } from "./ui";
@@ -91,12 +91,6 @@ export default function App() {
     setCurrentUser(user);
     if (user.role === "client") {
       setViewingClientId(user.id);
-      // seed a starter program for brand-new clients
-      try {
-        await saveProgram(user.id, seedProgram());
-      } catch (err) {
-        // ignore — program may already exist
-      }
     }
   }
 
