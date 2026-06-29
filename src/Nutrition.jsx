@@ -136,15 +136,16 @@ export default function Nutrition({ clientId, showToast }) {
 function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
   const [tab, setTab] = useState(savedFoods.length ? "saved" : "new");
   const [name, setName] = useState("");
-  const [cal, setCal] = useState("");
   const [protein, setProtein] = useState("");
   const [carb, setCarb] = useState("");
   const [fat, setFat] = useState("");
   const [remember, setRemember] = useState(true);
 
+  const cal = (Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9;
+
   function submitNew() {
-    if (!name.trim() || !cal) return;
-    const meal = { name: name.trim(), cal: Number(cal) || 0, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 };
+    if (!name.trim()) return;
+    const meal = { name: name.trim(), cal, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 };
     if (remember) onSaveFood(meal);
     onAdd(meal);
   }
@@ -172,11 +173,12 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
       ) : (
         <div>
           <TextField label="Food / meal name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chicken & rice bowl" />
-          <div style={{ display: "flex", gap: 8 }}>
-            <TextField label="Calories" inputMode="numeric" value={cal} onChange={(e) => setCal(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-            <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="0" style={{ flex: 1 }} />
+          <div style={{ background: C.pineTint, borderRadius: 12, padding: "10px 14px", marginBottom: 13, textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em" }}>Calories (auto-calculated)</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: C.pineDeep, fontFamily: "Playfair Display, serif" }}>{cal} kcal</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="0" style={{ flex: 1 }} />
             <TextField label="Carbs (g)" inputMode="numeric" value={carb} onChange={(e) => setCarb(e.target.value)} placeholder="0" style={{ flex: 1 }} />
             <TextField label="Fat (g)" inputMode="numeric" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="0" style={{ flex: 1 }} />
           </div>
@@ -184,7 +186,7 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
             Save to my foods for next time
           </label>
-          <PrimaryButton onClick={submitNew} disabled={!name.trim() || !cal}>Log it</PrimaryButton>
+          <PrimaryButton onClick={submitNew} disabled={!name.trim()}>Log it</PrimaryButton>
         </div>
       )}
     </Sheet>
@@ -192,17 +194,20 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
 }
 
 function NutritionGoalsSheet({ goal, onClose, onSave }) {
-  const [cal, setCal] = useState(goal.cal);
   const [protein, setProtein] = useState(goal.protein);
   const [carb, setCarb] = useState(goal.carb);
   const [fat, setFat] = useState(goal.fat);
+  const cal = (Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9;
   return (
     <Sheet title="Daily goals" onClose={onClose}>
-      <TextField label="Calories" inputMode="numeric" value={cal} onChange={(e) => setCal(e.target.value)} />
+      <div style={{ background: C.pineTint, borderRadius: 12, padding: "12px 14px", marginBottom: 14, textAlign: "center" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em" }}>Calorie goal (auto-calculated)</div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: C.pineDeep, fontFamily: "Playfair Display, serif" }}>{cal} kcal</div>
+      </div>
       <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} />
       <TextField label="Carbs (g)" inputMode="numeric" value={carb} onChange={(e) => setCarb(e.target.value)} />
       <TextField label="Fat (g)" inputMode="numeric" value={fat} onChange={(e) => setFat(e.target.value)} />
-      <PrimaryButton onClick={() => onSave({ cal: Number(cal) || 0, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 })}>Save goals</PrimaryButton>
+      <PrimaryButton onClick={() => onSave({ cal, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 })}>Save goals</PrimaryButton>
     </Sheet>
   );
 }
