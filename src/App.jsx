@@ -178,7 +178,7 @@ export default function App() {
           onFullscreenChange={setHideNav}
         />
       )}
-      {tab === "nutrition" && <Nutrition clientId={dataClientId} showToast={showToast} />}
+      {tab === "nutrition" && <Nutrition clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
       {tab === "activity" && <Activity clientId={dataClientId} showToast={showToast} />}
       {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} />}
       {tab === "photos" && <Photos clientId={dataClientId} showToast={showToast} />}
