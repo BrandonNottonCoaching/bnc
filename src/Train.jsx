@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Dumbbell, Clock, ChevronRight, ChevronDown, ArrowLeft, Pencil, Trash2, X, Plus, Check, Save as SaveIcon, Trophy } from "lucide-react";
-import { C, todayKey, fmtNice, uid, computeStrengthStats } from "./helpers";
+import { Dumbbell, Clock, ChevronRight, ChevronDown, ArrowLeft, Pencil, Trash2, X, Plus, Check, Save as SaveIcon, Trophy, TrendingUp } from "lucide-react";
+import { C, todayKey, fmtNice, fmtShort, uid, computeStrengthStats } from "./helpers";
 import { Card, SectionLabel, PrimaryButton, GhostButton, EmptyState } from "./ui";
 import { getProgram, saveProgram, listWorkouts, saveWorkout } from "./api";
 
@@ -139,6 +139,22 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
 }
 
 function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName }) {
+  // Find the most recent previous logged performance for each exercise name.
+  // Looks back through workout history (newest first) for sets with real numbers.
+  function lastPerformanceFor(name) {
+    const key = name.trim().toLowerCase();
+    for (const w of workouts) {
+      const match = (w.rows || []).find((r) => r.name.trim().toLowerCase() === key);
+      if (match) {
+        const realSets = (match.sets || []).filter((s) => s.weight || s.reps);
+        if (realSets.length > 0) {
+          return { date: w.date, sets: realSets };
+        }
+      }
+    }
+    return null;
+  }
+
   const [rows, setRows] = useState(
     session.exercises.map((ex) => ({
       exerciseId: ex.id,
@@ -214,7 +230,9 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {rows.map((row, ri) => (
+        {rows.map((row, ri) => {
+          const last = lastPerformanceFor(row.name);
+          return (
           <Card key={row.exerciseId} style={{ borderColor: row.done ? C.pine : C.line, background: row.done ? C.pineTint : C.paper }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
@@ -222,6 +240,12 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
                 <div style={{ fontSize: 11.5, color: C.graphite }}>
                   Target {row.targetSets} sets × {row.targetReps} reps
                 </div>
+                {last && (
+                  <div style={{ fontSize: 11.5, color: C.pine, fontWeight: 600, marginTop: 3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                    <TrendingUp size={12} />
+                    <span>Last time ({fmtShort(last.date)}): {last.sets.map((s) => `${s.weight || "–"}kg×${s.reps || "–"}`).join(", ")}</span>
+                  </div>
+                )}
               </div>
               <button onClick={() => toggleDone(ri)} style={{ background: row.done ? C.pine : C.stone, border: "none", borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Check size={15} color={row.done ? "#fff" : C.graphite} />
@@ -257,7 +281,8 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
               <Plus size={13} /> Add set
             </button>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <SectionLabel>Session notes</SectionLabel>
