@@ -301,3 +301,30 @@ export async function markClientViewed(coachId, clientId) {
     .upsert({ coach_id: coachId, client_id: clientId, last_viewed: new Date().toISOString() }, { onConflict: "coach_id,client_id" });
   if (error) throw error;
 }
+
+/* ============== Plan phases ============== */
+
+export async function listPhases(clientId) {
+  const { data, error } = await supabase
+    .from("plan_phases")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("start_date", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addPhase(clientId, phase) {
+  const { error } = await supabase.from("plan_phases").insert({ client_id: clientId, ...phase });
+  if (error) throw error;
+}
+
+export async function updatePhase(id, phase) {
+  const { error } = await supabase.from("plan_phases").update(phase).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deletePhase(id) {
+  const { error } = await supabase.from("plan_phases").delete().eq("id", id);
+  if (error) throw error;
+}
