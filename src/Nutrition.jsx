@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Pencil, Plus, X, Apple, Search } from "lucide-react";
 import { C, todayKey, addDaysKey, fmtNice } from "./helpers";
 import { Card, SectionLabel, Ring, MacroBar, PrimaryButton, GhostButton, TextField, Sheet, EmptyState } from "./ui";
-import { getNutritionGoal, saveNutritionGoal, getNutritionDay, saveNutritionDay, listSavedFoods, addSavedFood, searchFoods } from "./api";
+import { getNutritionGoal, saveNutritionGoal, getNutritionDay, saveNutritionDay, listSavedFoods, addSavedFood } from "./api";
+import { FOODS } from "./foods";
 
 export default function Nutrition({ clientId, viewerRole, showToast }) {
   const [loading, setLoading] = useState(true);
@@ -142,7 +143,7 @@ export default function Nutrition({ clientId, viewerRole, showToast }) {
 }
 
 function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
-  const [tab, setTab] = useState(savedFoods.length ? "saved" : "new");
+  const [tab, setTab] = useState(savedFoods.length ? "saved" : "search");
   const [name, setName] = useState("");
   const [protein, setProtein] = useState("");
   const [carb, setCarb] = useState("");
@@ -170,7 +171,7 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
         <SearchFoodTab onAdd={onAdd} onSaveFood={onSaveFood} />
       ) : tab === "saved" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
-          {savedFoods.length === 0 && <EmptyState icon={Apple} title="No saved foods yet" sub="Quick-add a meal and save it to reuse here." />}
+          {savedFoods.length === 0 && <EmptyState icon={Apple} title="No saved foods yet" sub="Log a food and tick 'save' to reuse it here." />}
           {savedFoods.map((f, i) => (
             <button key={i} onClick={() => onAdd(f)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.stone, border: "none", borderRadius: 12, padding: "11px 13px", textAlign: "left" }}>
               <div>
@@ -225,39 +226,23 @@ function NutritionGoalsSheet({ goal, onClose, onSave }) {
 
 function SearchFoodTab({ onAdd, onSaveFood }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [searched, setSearched] = useState(false);
   const [selected, setSelected] = useState(null);
   const [grams, setGrams] = useState("100");
   const [remember, setRemember] = useState(true);
 
-  async function runSearch() {
-    if (!query.trim()) return;
-    setLoading(true);
-    setError("");
-    setSearched(true);
-    setSelected(null);
-    try {
-      const foods = await searchFoods(query.trim());
-      setResults(foods);
-    } catch (e) {
-      setError("Couldn't reach the food database. Check your connection and try again.");
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const q = query.trim().toLowerCase();
+  const results = q
+    ? FOODS.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 40)
+    : FOODS.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   const g = Number(grams) || 0;
   const scaled = selected
     ? {
         name: selected.name,
-        cal: Math.round((selected.per100.cal * g) / 100),
-        protein: Math.round((selected.per100.protein * g) / 100),
-        carb: Math.round((selected.per100.carb * g) / 100),
-        fat: Math.round((selected.per100.fat * g) / 100),
+        cal: Math.round((selected.cal * g) / 100),
+        protein: Math.round((selected.protein * g) / 100 * 10) / 10,
+        carb: Math.round((selected.carb * g) / 100 * 10) / 10,
+        fat: Math.round((selected.fat * g) / 100 * 10) / 10,
       }
     : null;
 
@@ -271,10 +256,10 @@ function SearchFoodTab({ onAdd, onSaveFood }) {
   if (selected) {
     return (
       <div>
-        <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: C.pine, fontSize: 13, fontWeight: 600, marginBottom: 12, padding: 0 }}>‹ Back to results</button>
+        <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: C.pine, fontSize: 13, fontWeight: 600, marginBottom: 12, padding: 0 }}>‹ Back to list</button>
         <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginBottom: 2 }}>{selected.name}</div>
         <div style={{ fontSize: 12, color: C.graphite, marginBottom: 14 }}>
-          Per 100g: {selected.per100.cal} kcal · P{selected.per100.protein} C{selected.per100.carb} F{selected.per100.fat}
+          Per 100g: {selected.cal} kcal · P{selected.protein} C{selected.carb} F{selected.fat}
         </div>
 
         <TextField label="How much did you eat? (grams)" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} autoFocus />
@@ -296,43 +281,41 @@ function SearchFoodTab({ onAdd, onSaveFood }) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, background: C.stone, border: `1px solid ${C.line}`, borderRadius: 10, padding: "0 12px" }}>
+        <Search size={16} color={C.graphite} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search a food, e.g. chicken breast"
-          onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
+          placeholder="Search foods, e.g. chicken"
           autoFocus
-          style={{ flex: 1, padding: "11px 12px", border: `1px solid ${C.line}`, borderRadius: 10, fontSize: 15, background: C.stone, color: C.ink, boxSizing: "border-box" }}
+          style={{ flex: 1, padding: "11px 0", border: "none", background: "transparent", fontSize: 15, color: C.ink, outline: "none" }}
         />
-        <button onClick={runSearch} style={{ background: C.pine, border: "none", borderRadius: 10, padding: "0 16px", color: "#fff", display: "flex", alignItems: "center" }}>
-          <Search size={17} />
-        </button>
+        {query && (
+          <button onClick={() => setQuery("")} style={{ background: "none", border: "none", padding: 4 }}>
+            <X size={15} color={C.graphite} />
+          </button>
+        )}
       </div>
 
-      {loading && <div style={{ padding: 24, textAlign: "center", color: C.graphite, fontSize: 13 }}>Searching…</div>}
-      {error && <div style={{ padding: 14, background: C.amberTint, color: C.amber, borderRadius: 10, fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
-      {!loading && !error && searched && results.length === 0 && (
-        <EmptyState icon={Search} title="No matches found" sub="Try a simpler search, or use Quick add to enter it manually." />
+      {results.length === 0 && (
+        <EmptyState icon={Search} title="No matches found" sub="Try a shorter word, or use Quick add to enter it by hand." />
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto" }}>
         {results.map((f, i) => (
           <button key={i} onClick={() => { setSelected(f); setGrams("100"); }} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.stone, border: "none", borderRadius: 12, padding: "11px 13px", textAlign: "left" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
-              <div style={{ fontSize: 11.5, color: C.graphite }}>per 100g: {f.per100.cal} kcal · P{f.per100.protein} C{f.per100.carb} F{f.per100.fat}</div>
+              <div style={{ fontSize: 11.5, color: C.graphite }}>per 100g: {f.cal} kcal · P{f.protein} C{f.carb} F{f.fat}</div>
             </div>
             <Plus size={16} color={C.pine} style={{ flexShrink: 0, marginLeft: 8 }} />
           </button>
         ))}
       </div>
 
-      {!searched && (
-        <p style={{ fontSize: 11.5, color: C.graphite, marginTop: 12, lineHeight: 1.5 }}>
-          Food data from Open Food Facts. Coverage is best for packaged foods; if something's missing or looks off, use Quick add to enter it by hand.
-        </p>
-      )}
+      <p style={{ fontSize: 11.5, color: C.graphite, marginTop: 12, lineHeight: 1.5 }}>
+        Common foods with typical macros per 100g. For anything not listed, use Quick add.
+      </p>
     </div>
   );
 }
