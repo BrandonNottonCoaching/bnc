@@ -195,3 +195,37 @@ export function checkInStatus(lastCheckInDate) {
     overdue: !doneThisWeek && daysSinceMonday > 0,
   };
 }
+
+// Phase types metadata for the coaching plan/timeline.
+export const PHASE_TYPES = {
+  fat_loss:    { label: "Fat loss",    color: "#A23B2E", tint: "#F6E5E2" },
+  maintenance: { label: "Maintenance", color: "#9C8242", tint: "#F3EEDD" },
+  muscle_gain: { label: "Muscle gain", color: "#1C5236", tint: "#E7EFE8" },
+};
+
+/* Given a phase { start_date, weeks }, returns timing info relative to today:
+   { startKey, endKey, totalDays, dayInto, weeksElapsed, weeksLeft, status }
+   status = "upcoming" | "current" | "done" */
+export function phaseStatus(phase) {
+  const start = phase.start_date;
+  const endExclusive = addDaysKey(start, phase.weeks * 7); // day after last day
+  const endKey = addDaysKey(endExclusive, -1);            // last day of phase
+  const today = todayKey();
+
+  const msDay = 86400000;
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  const startDate = new Date(sy, sm - 1, sd);
+  const todayDate = new Date(ty, tm - 1, td);
+  const dayInto = Math.floor((todayDate - startDate) / msDay); // 0 on start day
+
+  const totalDays = phase.weeks * 7;
+  let status = "current";
+  if (today < start) status = "upcoming";
+  else if (today >= endExclusive) status = "done";
+
+  const weeksElapsed = Math.max(0, Math.min(phase.weeks, Math.floor(dayInto / 7) + (status === "current" ? 1 : 0)));
+  const weeksLeft = status === "done" ? 0 : status === "upcoming" ? phase.weeks : Math.max(0, phase.weeks - Math.floor(dayInto / 7));
+
+  return { startKey: start, endKey, totalDays, dayInto, weeksElapsed, weeksLeft, status };
+}
