@@ -17,6 +17,7 @@ import Activity from "./Activity";
 import Progress from "./Progress";
 import Photos from "./Photos";
 import CheckIn from "./CheckIn";
+import Plan from "./Plan";
 
 function Frame({ children }) {
   return (
@@ -218,8 +219,17 @@ export default function App() {
       {tab === "checkin" && <CheckIn clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
       {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} />}
       {tab === "photos" && <Photos clientId={dataClientId} showToast={showToast} />}
+      {tab === "plan" && (
+        <Plan
+          clientId={dataClientId}
+          clientName={viewingName}
+          viewerRole={currentUser.role}
+          onBack={() => setTab("home")}
+          showToast={showToast}
+        />
+      )}
 
-      {!hideNav && <BottomNav tabs={tabs} active={tab} onChange={setTab} />}
+      {!hideNav && tab !== "plan" && <BottomNav tabs={tabs} active={tab} onChange={setTab} />}
       {showProfileMenu && <ProfileMenuSheet user={currentUser} onClose={() => setShowProfileMenu(false)} onLogout={handleLogout} />}
       <Toast text={toast} />
     </Frame>
