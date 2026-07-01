@@ -183,9 +183,9 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
             <div style={{ fontSize: 24, fontWeight: 700, color: C.pineDeep, fontFamily: "Playfair Display, serif" }}>{cal} kcal</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-            <TextField label="Carbs (g)" inputMode="numeric" value={carb} onChange={(e) => setCarb(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-            <TextField label="Fat (g)" inputMode="numeric" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="0" style={{ flex: 1 }} />
+            <TextField label="Protein (g)" inputMode="decimal" value={protein} onChange={(e) => setProtein(e.target.value)} placeholder="0" style={{ flex: 1 }} />
+            <TextField label="Carbs (g)" inputMode="decimal" value={carb} onChange={(e) => setCarb(e.target.value)} placeholder="0" style={{ flex: 1 }} />
+            <TextField label="Fat (g)" inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="0" style={{ flex: 1 }} />
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, fontSize: 13, color: C.graphite }}>
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
@@ -209,9 +209,9 @@ function NutritionGoalsSheet({ goal, onClose, onSave }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em" }}>Calorie goal</div>
         <div style={{ fontSize: 28, fontWeight: 700, color: C.pineDeep, fontFamily: "Playfair Display, serif" }}>{cal} kcal</div>
       </div>
-      <TextField label="Protein (g)" inputMode="numeric" value={protein} onChange={(e) => setProtein(e.target.value)} />
-      <TextField label="Carbs (g)" inputMode="numeric" value={carb} onChange={(e) => setCarb(e.target.value)} />
-      <TextField label="Fat (g)" inputMode="numeric" value={fat} onChange={(e) => setFat(e.target.value)} />
+      <TextField label="Protein (g)" inputMode="decimal" value={protein} onChange={(e) => setProtein(e.target.value)} />
+      <TextField label="Carbs (g)" inputMode="decimal" value={carb} onChange={(e) => setCarb(e.target.value)} />
+      <TextField label="Fat (g)" inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} />
       <PrimaryButton onClick={() => onSave({ cal, protein: Number(protein) || 0, carb: Number(carb) || 0, fat: Number(fat) || 0 })}>Save goals</PrimaryButton>
     </Sheet>
   );
@@ -271,7 +271,7 @@ function SearchFoodTab({ onAdd, onSaveFood }) {
           Per 100g: {selected.per100.cal} kcal · P{selected.per100.protein} C{selected.per100.carb} F{selected.per100.fat}
         </div>
 
-        <TextField label="How much did you eat? (grams)" inputMode="numeric" value={grams} onChange={(e) => setGrams(e.target.value)} autoFocus />
+        <TextField label="How much did you eat? (grams)" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} autoFocus />
 
         <div style={{ background: C.pineTint, borderRadius: 12, padding: "12px 14px", margin: "4px 0 14px", textAlign: "center" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em" }}>This serving</div>
