@@ -94,12 +94,18 @@ export default function Nutrition({ clientId, viewerRole, showToast }) {
         <>
           <Card>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-              <Ring value={totals.cal} max={goal.cal} size={76} color={C.amber} label={totals.cal} sub="kcal" />
+              <Ring value={totals.cal} max={goal.cal} size={76} color={C.amber} label={totals.cal} sub={goal.cal - totals.cal >= 0 ? `${goal.cal - totals.cal} left` : `${totals.cal - goal.cal} over`} />
               <div style={{ flex: 1 }}>
                 <MacroBar label="Protein" value={totals.protein} goal={goal.protein} color={C.pine} />
                 <MacroBar label="Carbs" value={totals.carb} goal={goal.carb} color={C.gold} />
                 <MacroBar label="Fat" value={totals.fat} goal={goal.fat} color={C.danger} />
               </div>
+            </div>
+            <div style={{ textAlign: "center", fontSize: 12.5, color: C.graphite, borderTop: `1px solid ${C.line}`, paddingTop: 10 }}>
+              <strong style={{ color: C.ink }}>{totals.cal}</strong> / {goal.cal} kcal
+              {goal.cal - totals.cal >= 0
+                ? <span style={{ color: C.pine, fontWeight: 600 }}> · {goal.cal - totals.cal} left</span>
+                : <span style={{ color: C.danger, fontWeight: 600 }}> · {totals.cal - goal.cal} over</span>}
             </div>
           </Card>
 
