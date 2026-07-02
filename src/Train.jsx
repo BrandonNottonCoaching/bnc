@@ -148,7 +148,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       if (match) {
         const realSets = (match.sets || []).filter((s) => s.weight || s.reps);
         if (realSets.length > 0) {
-          return { date: w.date, sets: realSets };
+          return { date: w.date, sets: realSets, note: match.note || "" };
         }
       }
     }
@@ -162,6 +162,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       targetSets: ex.sets,
       targetReps: ex.reps,
       sets: Array.from({ length: Number(ex.sets) || 1 }, () => ({ weight: "", reps: "" })),
+      note: "",
       done: false,
     }))
   );
@@ -180,6 +181,13 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       return next;
     });
   }
+  function updateNote(rowIdx, value) {
+    setRows((prev) => {
+      const next = [...prev];
+      next[rowIdx] = { ...next[rowIdx], note: value };
+      return next;
+    });
+  }
   function toggleDone(rowIdx) {
     setRows((prev) => prev.map((r, i) => (i === rowIdx ? { ...r, done: !r.done } : r)));
   }
@@ -195,7 +203,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
     const entry = {
       sessionName: session.name,
       date: todayKey(),
-      rows: rows.map(({ exerciseId, name, sets, done }) => ({ exerciseId, name, sets, done })),
+      rows: rows.map(({ exerciseId, name, sets, note, done }) => ({ exerciseId, name, sets, note, done })),
       notes,
       loggedWith: viewerRole === "trainer" ? viewerName : null,
     };
@@ -246,6 +254,11 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
                     <span>Last time ({fmtShort(last.date)}): {last.sets.map((s) => `${s.weight || "–"}kg×${s.reps || "–"}`).join(", ")}</span>
                   </div>
                 )}
+                {last && last.note && (
+                  <div style={{ fontSize: 11.5, color: C.graphite, fontStyle: "italic", marginTop: 2 }}>
+                    Last note: "{last.note}"
+                  </div>
+                )}
               </div>
               <button onClick={() => toggleDone(ri)} style={{ background: row.done ? C.pine : C.stone, border: "none", borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Check size={15} color={row.done ? "#fff" : C.graphite} />
@@ -277,9 +290,15 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
                 </div>
               </div>
             ))}
-            <button onClick={() => addSet(ri)} style={{ background: "none", border: "none", color: C.pine, fontSize: 12.5, fontWeight: 600, padding: "4px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={() => addSet(ri)} style={{ background: "none", border: "none", color: C.pine, fontSize: 12.5, fontWeight: 600, padding: "4px 0 8px", display: "flex", alignItems: "center", gap: 4 }}>
               <Plus size={13} /> Add set
             </button>
+            <input
+              value={row.note}
+              onChange={(e) => updateNote(ri, e.target.value)}
+              placeholder="Note (e.g. felt strong, go up next week)"
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13, background: C.stone, boxSizing: "border-box" }}
+            />
           </Card>
           );
         })}
@@ -391,6 +410,7 @@ function WorkoutHistory({ workouts, onBack }) {
                       <span style={{ color: C.graphite }}>
                         {r.sets.filter((s) => s.weight || s.reps).map((s) => `${s.weight || "–"}kg×${s.reps || "–"}`).join(", ") || "no sets logged"}
                       </span>
+                      {r.note && <div style={{ fontSize: 12, color: C.graphite, fontStyle: "italic", marginTop: 1 }}>"{r.note}"</div>}
                     </div>
                   ))}
                   {w.notes && <div style={{ fontSize: 12.5, color: C.graphite, fontStyle: "italic", marginTop: 4 }}>"{w.notes}"</div>}
