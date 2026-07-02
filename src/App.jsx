@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Home, Dumbbell, Apple, Footprints, Trophy, Camera, ClipboardCheck } from "lucide-react";
+import { Home, Dumbbell, Apple, Footprints, Trophy, Calendar, ClipboardCheck } from "lucide-react";
 import { C } from "./helpers";
 import { supabase } from "./supabaseClient";
 import { getCurrentSession, signOut, listClients, latestCheckInPerClient, getCoachViews, markClientViewed } from "./api";
@@ -18,6 +18,7 @@ import Progress from "./Progress";
 import Photos from "./Photos";
 import CheckIn from "./CheckIn";
 import Plan from "./Plan";
+import Book from "./Book";
 
 function Frame({ children }) {
   return (
@@ -145,7 +146,7 @@ export default function App() {
     { key: "activity", label: "Activity", icon: Footprints },
     { key: "checkin", label: "Check-in", icon: ClipboardCheck },
     { key: "progress", label: "Progress", icon: Trophy },
-    { key: "photos", label: "Photos", icon: Camera },
+    { key: "book", label: "Book", icon: Calendar },
   ];
 
   if (booting) {
@@ -219,6 +220,7 @@ export default function App() {
       {tab === "checkin" && <CheckIn clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
       {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} />}
       {tab === "photos" && <Photos clientId={dataClientId} showToast={showToast} />}
+      {tab === "book" && <Book />}
       {tab === "plan" && (
         <Plan
           clientId={dataClientId}
