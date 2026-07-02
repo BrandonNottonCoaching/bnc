@@ -110,4 +110,81 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <ClipboardCheck size={20} color="#fff" />
                 <div>
-                  <div style={{ fontWeight: 700,
+                  <div style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>Weekly check-in {status.overdue ? "overdue" : "due today"}</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.9)" }}>Tap to fill it in</div>
+                </div>
+              </div>
+            </Card>
+          );
+        }
+        return null;
+      })()}
+
+      <div style={{ display: "flex", gap: 12 }}>
+        <Card style={{ flex: 1, alignItems: "center", display: "flex", flexDirection: "column", cursor: "pointer" }} onClick={() => goTab("activity")}>
+          <Ring value={stepsToday} max={stepGoal} label={stepsToday >= 1000 ? (stepsToday / 1000).toFixed(1) + "k" : stepsToday} sub="steps" size={64} color={C.pine} />
+        </Card>
+        <Card style={{ flex: 1, alignItems: "center", display: "flex", flexDirection: "column", cursor: "pointer" }} onClick={() => goTab("nutrition")}>
+          <Ring value={calToday} max={calGoal} label={calToday} sub="kcal" size={64} color={C.amber} />
+        </Card>
+      </div>
+
+      <SectionLabel>Training</SectionLabel>
+      <Card onClick={() => goTab("train")} style={{ cursor: "pointer" }}>
+        {lastWorkout ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontWeight: 600, color: C.ink }}>{lastWorkout.sessionName}</div>
+              <div style={{ fontSize: 12.5, color: C.graphite }}>
+                {daysAgo === 0 ? "Logged today" : `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`}
+                {lastWorkout.loggedWith ? ` · with ${lastWorkout.loggedWith}` : ""}
+              </div>
+            </div>
+            <Dumbbell size={20} color={C.pine} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ color: C.graphite, fontSize: 14 }}>No sessions logged yet</span>
+            <Dumbbell size={20} color={C.graphite} />
+          </div>
+        )}
+      </Card>
+
+      <SectionLabel>Book a session</SectionLabel>
+      <Card onClick={() => goTab("book")} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Calendar size={18} color={C.pine} />
+          <span style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>Book a session with Brandon</span>
+        </div>
+        <span style={{ fontSize: 12.5, color: C.graphite }}>Open</span>
+      </Card>
+
+      <SectionLabel>Progress photos</SectionLabel>
+      <Card onClick={() => goTab("photos")} style={{ cursor: "pointer" }}>
+        {lastPhoto ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <img src={lastPhoto.image} style={{ width: 50, height: 50, borderRadius: 10, objectFit: "cover" }} />
+            <div>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>Latest photo</div>
+              <div style={{ fontSize: 12.5, color: C.graphite }}>{fmtNice(lastPhoto.date)}</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ color: C.graphite, fontSize: 14 }}>No photos yet</span>
+            <Camera size={20} color={C.graphite} />
+          </div>
+        )}
+      </Card>
+
+      <SectionLabel>Coaching plan</SectionLabel>
+      <Card onClick={() => goTab("plan")} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Target size={18} color={C.pine} />
+          <span style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{phases.length ? "View your plan & phases" : "No plan set yet"}</span>
+        </div>
+        <span style={{ fontSize: 12.5, color: C.graphite }}>{phases.length ? `${phases.length} phase${phases.length === 1 ? "" : "s"}` : ""}</span>
+      </Card>
+    </div>
+  );
+}
