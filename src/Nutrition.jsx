@@ -5,6 +5,10 @@ import { Card, SectionLabel, Ring, MacroBar, PrimaryButton, GhostButton, TextFie
 import { getNutritionGoal, saveNutritionGoal, getNutritionDay, saveNutritionDay, listSavedFoods, addSavedFood } from "./api";
 import { FOODS } from "./foods";
 
+// Round for display; strips floating-point noise like 1316.1000000000001.
+const r = (n) => Math.round(Number(n) || 0);
+const r1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
+
 export default function Nutrition({ clientId, viewerRole, showToast }) {
   const [loading, setLoading] = useState(true);
   const [goal, setGoal] = useState({ cal: 2200, protein: 160, carb: 220, fat: 70 });
@@ -41,6 +45,8 @@ export default function Nutrition({ clientId, viewerRole, showToast }) {
     (acc, m) => ({ cal: acc.cal + Number(m.cal || 0), protein: acc.protein + Number(m.protein || 0), carb: acc.carb + Number(m.carb || 0), fat: acc.fat + Number(m.fat || 0) }),
     { cal: 0, protein: 0, carb: 0, fat: 0 }
   );
+  const calTotal = r(totals.cal);
+  const calDiff = r(goal.cal) - calTotal;
 
   async function addMeal(meal) {
     const next = [...meals, meal];
@@ -95,18 +101,18 @@ export default function Nutrition({ clientId, viewerRole, showToast }) {
         <>
           <Card>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-              <Ring value={totals.cal} max={goal.cal} size={76} color={C.amber} label={totals.cal} sub={goal.cal - totals.cal >= 0 ? `${goal.cal - totals.cal} left` : `${totals.cal - goal.cal} over`} />
+              <Ring value={calTotal} max={r(goal.cal)} size={76} color={C.amber} label={calTotal} sub={calDiff >= 0 ? `${calDiff} left` : `${-calDiff} over`} />
               <div style={{ flex: 1 }}>
-                <MacroBar label="Protein" value={totals.protein} goal={goal.protein} color={C.pine} />
-                <MacroBar label="Carbs" value={totals.carb} goal={goal.carb} color={C.gold} />
-                <MacroBar label="Fat" value={totals.fat} goal={goal.fat} color={C.danger} />
+                <MacroBar label="Protein" value={r1(totals.protein)} goal={goal.protein} color={C.pine} />
+                <MacroBar label="Carbs" value={r1(totals.carb)} goal={goal.carb} color={C.gold} />
+                <MacroBar label="Fat" value={r1(totals.fat)} goal={goal.fat} color={C.danger} />
               </div>
             </div>
             <div style={{ textAlign: "center", fontSize: 12.5, color: C.graphite, borderTop: `1px solid ${C.line}`, paddingTop: 10 }}>
-              <strong style={{ color: C.ink }}>{totals.cal}</strong> / {goal.cal} kcal
-              {goal.cal - totals.cal >= 0
-                ? <span style={{ color: C.pine, fontWeight: 600 }}> · {goal.cal - totals.cal} left</span>
-                : <span style={{ color: C.danger, fontWeight: 600 }}> · {totals.cal - goal.cal} over</span>}
+              <strong style={{ color: C.ink }}>{calTotal}</strong> / {r(goal.cal)} kcal
+              {calDiff >= 0
+                ? <span style={{ color: C.pine, fontWeight: 600 }}> · {calDiff} left</span>
+                : <span style={{ color: C.danger, fontWeight: 600 }}> · {-calDiff} over</span>}
             </div>
           </Card>
 
@@ -120,7 +126,7 @@ export default function Nutrition({ clientId, viewerRole, showToast }) {
               <Card key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: C.graphite }}>{m.cal} kcal · P{m.protein} C{m.carb} F{m.fat}</div>
+                  <div style={{ fontSize: 12, color: C.graphite }}>{r(m.cal)} kcal · P{r1(m.protein)} C{r1(m.carb)} F{r1(m.fat)}</div>
                 </div>
                 <button onClick={() => removeMeal(i)} style={{ background: "none", border: "none" }}><X size={16} color={C.graphite} /></button>
               </Card>
@@ -150,7 +156,7 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
   const [fat, setFat] = useState("");
   const [remember, setRemember] = useState(true);
 
-  const cal = (Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9;
+  const cal = Math.round((Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9);
 
   function submitNew() {
     if (!name.trim()) return;
@@ -176,7 +182,7 @@ function AddMealSheet({ onClose, onAdd, savedFoods, onSaveFood }) {
             <button key={i} onClick={() => onAdd(f)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.stone, border: "none", borderRadius: 12, padding: "11px 13px", textAlign: "left" }}>
               <div>
                 <div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{f.name}</div>
-                <div style={{ fontSize: 12, color: C.graphite }}>{f.cal} kcal · P{f.protein} C{f.carb} F{f.fat}</div>
+                <div style={{ fontSize: 12, color: C.graphite }}>{Math.round(Number(f.cal) || 0)} kcal · P{f.protein} C{f.carb} F{f.fat}</div>
               </div>
               <Plus size={16} color={C.pine} />
             </button>
@@ -209,7 +215,7 @@ function NutritionGoalsSheet({ goal, onClose, onSave }) {
   const [protein, setProtein] = useState(goal.protein);
   const [carb, setCarb] = useState(goal.carb);
   const [fat, setFat] = useState(goal.fat);
-  const cal = (Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9;
+  const cal = Math.round((Number(protein) || 0) * 4 + (Number(carb) || 0) * 4 + (Number(fat) || 0) * 9);
   return (
     <Sheet title="Daily goals" onClose={onClose}>
       <div style={{ background: C.pineTint, borderRadius: 12, padding: "12px 14px", marginBottom: 14, textAlign: "center" }}>
