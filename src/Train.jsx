@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Dumbbell, Clock, ChevronRight, ChevronDown, ArrowLeft, Pencil, Trash2, X, Plus, Check, Save as SaveIcon, Trophy, TrendingUp } from "lucide-react";
+import { Dumbbell, Clock, ChevronRight, ChevronDown, ArrowLeft, Pencil, Trash2, X, Plus, Check, Save as SaveIcon, Trophy, TrendingUp, HeartPulse } from "lucide-react";
 import { C, todayKey, fmtNice, fmtShort, uid, computeStrengthStats } from "./helpers";
 import { Card, SectionLabel, PrimaryButton, GhostButton, EmptyState } from "./ui";
 import { getProgram, saveProgram, listWorkouts, saveWorkout } from "./api";
@@ -166,6 +166,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       done: false,
     }))
   );
+  const [cardio, setCardio] = useState([]);
   const [notes, setNotes] = useState("");
   const [pendingEntry, setPendingEntry] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -199,11 +200,29 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
     });
   }
 
+  function addCardio() {
+    setCardio((prev) => [...prev, { id: uid("cardio"), type: "", minutes: "" }]);
+  }
+  function updateCardio(idx, field, value) {
+    setCardio((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  }
+  function removeCardio(idx) {
+    setCardio((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   function handleSaveTap() {
+    const cleanCardio = cardio
+      .filter((c) => c.type.trim() || c.minutes)
+      .map(({ type, minutes }) => ({ type: type.trim(), minutes: Number(minutes) || 0 }));
     const entry = {
       sessionName: session.name,
       date: todayKey(),
       rows: rows.map(({ exerciseId, name, sets, note, done }) => ({ exerciseId, name, sets, note, done })),
+      cardio: cleanCardio,
       notes,
       loggedWith: viewerRole === "trainer" ? viewerName : null,
     };
@@ -302,6 +321,36 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
           </Card>
           );
         })}
+      </div>
+
+      <SectionLabel>Cardio</SectionLabel>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {cardio.map((c, ci) => (
+          <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              value={c.type}
+              onChange={(e) => updateCardio(ci, "type", e.target.value)}
+              placeholder="Type (e.g. Treadmill)"
+              style={{ flex: "2 1 0%", minWidth: 0, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fff", boxSizing: "border-box" }}
+            />
+            <div style={{ flex: "1 1 0%", minWidth: 0, position: "relative" }}>
+              <input
+                value={c.minutes}
+                onChange={(e) => updateCardio(ci, "minutes", e.target.value)}
+                placeholder="0"
+                inputMode="numeric"
+                style={{ width: "100%", padding: "9px 40px 9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fff", boxSizing: "border-box" }}
+              />
+              <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: C.graphite, pointerEvents: "none" }}>min</span>
+            </div>
+            <button onClick={() => removeCardio(ci)} style={{ background: "none", border: "none", padding: 4, flexShrink: 0 }}>
+              <X size={16} color={C.graphite} />
+            </button>
+          </div>
+        ))}
+        <button onClick={addCardio} style={{ background: "none", border: `1px dashed ${C.line}`, borderRadius: 10, color: C.pine, fontSize: 12.5, fontWeight: 600, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <HeartPulse size={14} /> Add cardio
+        </button>
       </div>
 
       <SectionLabel>Session notes</SectionLabel>
@@ -413,6 +462,16 @@ function WorkoutHistory({ workouts, onBack }) {
                       {r.note && <div style={{ fontSize: 12, color: C.graphite, fontStyle: "italic", marginTop: 1 }}>"{r.note}"</div>}
                     </div>
                   ))}
+                  {w.cardio && w.cardio.length > 0 && (
+                    <div style={{ marginTop: 4, paddingTop: 8, borderTop: `1px dashed ${C.line}` }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>Cardio</div>
+                      {w.cardio.map((c, ci) => (
+                        <div key={ci} style={{ fontSize: 13, color: C.graphite }}>
+                          <span style={{ fontWeight: 600, color: C.ink }}>{c.type || "Cardio"}</span> · {c.minutes} min
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {w.notes && <div style={{ fontSize: 12.5, color: C.graphite, fontStyle: "italic", marginTop: 4 }}>"{w.notes}"</div>}
                 </div>
               )}
