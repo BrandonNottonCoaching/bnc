@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Dumbbell, Clock, ChevronRight, ChevronDown, ArrowLeft, Pencil, Trash2, X, Plus, Check, Save as SaveIcon, Trophy, TrendingUp, HeartPulse } from "lucide-react";
 import { C, todayKey, fmtNice, fmtShort, uid, computeStrengthStats } from "./helpers";
 import { Card, SectionLabel, PrimaryButton, GhostButton, EmptyState } from "./ui";
-import { getProgram, saveProgram, listWorkouts, saveWorkout } from "./api";
+import { getProgram, saveProgram, listWorkouts, saveWorkout, getActivityDay, saveActivityDay } from "./api";
 
 export default function Train({ clientId, viewerRole, viewerName, viewingClientName, showToast, onFullscreenChange }) {
   const [loading, setLoading] = useState(true);
@@ -44,6 +44,18 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
     await saveWorkout(clientId, entry);
   }
 
+  // Append any ticked-off cardio into today's Activity cardio list.
+  async function logCardioToActivity(cardioEntries) {
+    if (!cardioEntries || cardioEntries.length === 0) return;
+    const tk = todayKey();
+    const activityDay = await getActivityDay(clientId, tk);
+    const merged = {
+      steps: activityDay.steps || 0,
+      cardio: [...(activityDay.cardio || []), ...cardioEntries],
+    };
+    await saveActivityDay(clientId, tk, merged);
+  }
+
   if (loading) {
     return <div style={{ padding: 40, textAlign: "center", color: C.graphite, fontSize: 13 }}>Loading…</div>;
   }
@@ -54,10 +66,11 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
         session={activeSession}
         workouts={workouts}
         onBack={() => setScreen("sessions")}
-        onSave={async (entry) => {
+        onSave={async (entry, cardioForActivity) => {
           await persistWorkout(entry);
+          await logCardioToActivity(cardioForActivity);
           setScreen("sessions");
-          showToast("Session logged");
+          showToast(cardioForActivity.length ? "Session logged · cardio added to Activity" : "Session logged");
         }}
         viewerRole={viewerRole}
         viewerName={viewerName}
@@ -115,7 +128,7 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
           <Card key={s.id}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontWeight: 700, color: C.ink, fontSize: 15.5 }}>{s.name}</span>
-              <span style={{ fontSize: 11.5, color: C.graphite }}>{s.exercises.length} exercises</span>
+              <span style={{ fontSize: 11.5, color: C.graphite }}>{s.exercises.length} exercises{s.cardio && s.cardio.length ? ` · ${s.cardio.length} cardio` : ""}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 12 }}>
               {s.exercises.slice(0, 3).map((ex) => (
@@ -140,7 +153,6 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
 
 function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName }) {
   // Find the most recent previous logged performance for each exercise name.
-  // Looks back through workout history (newest first) for sets with real numbers.
   function lastPerformanceFor(name) {
     const key = name.trim().toLowerCase();
     for (const w of workouts) {
@@ -166,9 +178,20 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       done: false,
     }))
   );
-  const [cardio, setCardio] = useState([]);
+  // Planned cardio from the program, with a done tick and editable actual minutes.
+  const [cardioRows, setCardioRows] = useState(
+    (session.cardio || []).map((c) => ({
+      id: c.id || uid("cardio"),
+      type: c.type,
+      minutes: c.minutes,
+      note: c.note || "",
+      actualMinutes: String(c.minutes || ""),
+      done: false,
+    }))
+  );
   const [notes, setNotes] = useState("");
   const [pendingEntry, setPendingEntry] = useState(null);
+  const [pendingActivityCardio, setPendingActivityCardio] = useState([]);
   const [summary, setSummary] = useState(null);
 
   function updateSet(rowIdx, setIdx, field, value) {
@@ -200,32 +223,33 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
     });
   }
 
-  function addCardio() {
-    setCardio((prev) => [...prev, { id: uid("cardio"), type: "", minutes: "" }]);
+  function toggleCardioDone(idx) {
+    setCardioRows((prev) => prev.map((c, i) => (i === idx ? { ...c, done: !c.done } : c)));
   }
-  function updateCardio(idx, field, value) {
-    setCardio((prev) => {
+  function updateCardioMinutes(idx, value) {
+    setCardioRows((prev) => {
       const next = [...prev];
-      next[idx] = { ...next[idx], [field]: value };
+      next[idx] = { ...next[idx], actualMinutes: value };
       return next;
     });
   }
-  function removeCardio(idx) {
-    setCardio((prev) => prev.filter((_, i) => i !== idx));
-  }
 
   function handleSaveTap() {
-    const cleanCardio = cardio
-      .filter((c) => c.type.trim() || c.minutes)
-      .map(({ type, minutes }) => ({ type: type.trim(), minutes: Number(minutes) || 0 }));
+    // Cardio the client ticked off -> goes into workout record AND Activity tab.
+    const doneCardio = cardioRows
+      .filter((c) => c.done)
+      .map((c) => ({ type: c.type || "Cardio", minutes: Number(c.actualMinutes) || Number(c.minutes) || 0, note: c.note || "" }));
     const entry = {
       sessionName: session.name,
       date: todayKey(),
       rows: rows.map(({ exerciseId, name, sets, note, done }) => ({ exerciseId, name, sets, note, done })),
-      cardio: cleanCardio,
+      cardio: doneCardio,
       notes,
       loggedWith: viewerRole === "trainer" ? viewerName : null,
     };
+    // For Activity, only need type + minutes (matches Activity's cardio shape).
+    const activityCardio = doneCardio.map((c) => ({ type: c.type, minutes: c.minutes, distance: null, cal: null }));
+
     const nextWorkouts = [entry, ...workouts.filter((w) => w.date !== todayKey())];
     const stats = computeStrengthStats(nextWorkouts);
     const todayNames = new Set(entry.rows.map((r) => r.name.trim().toLowerCase()));
@@ -239,7 +263,8 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
     });
     const overallPct = gains.length ? gains.reduce((sum, g) => sum + g.pct, 0) / gains.length : null;
     setPendingEntry(entry);
-    setSummary({ overallPct, gains });
+    setPendingActivityCardio(activityCardio);
+    setSummary({ overallPct, gains, cardioCount: doneCardio.length });
   }
 
   const completedCount = rows.filter((r) => r.done).length;
@@ -323,35 +348,47 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
         })}
       </div>
 
-      <SectionLabel>Cardio</SectionLabel>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {cardio.map((c, ci) => (
-          <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              value={c.type}
-              onChange={(e) => updateCardio(ci, "type", e.target.value)}
-              placeholder="Type (e.g. Treadmill)"
-              style={{ flex: "2 1 0%", minWidth: 0, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fff", boxSizing: "border-box" }}
-            />
-            <div style={{ flex: "1 1 0%", minWidth: 0, position: "relative" }}>
-              <input
-                value={c.minutes}
-                onChange={(e) => updateCardio(ci, "minutes", e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                style={{ width: "100%", padding: "9px 40px 9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fff", boxSizing: "border-box" }}
-              />
-              <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: C.graphite, pointerEvents: "none" }}>min</span>
-            </div>
-            <button onClick={() => removeCardio(ci)} style={{ background: "none", border: "none", padding: 4, flexShrink: 0 }}>
-              <X size={16} color={C.graphite} />
-            </button>
+      {cardioRows.length > 0 && (
+        <>
+          <SectionLabel>Cardio</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {cardioRows.map((c, ci) => (
+              <Card key={c.id} style={{ borderColor: c.done ? C.pine : C.line, background: c.done ? C.pineTint : C.paper }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <HeartPulse size={14} color={C.pine} />
+                      <span style={{ fontWeight: 700, color: C.ink, fontSize: 14.5 }}>{c.type}</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: C.graphite, marginTop: 2 }}>Target {c.minutes} min{c.note ? ` · ${c.note}` : ""}</div>
+                  </div>
+                  <button onClick={() => toggleCardioDone(ci)} style={{ background: c.done ? C.pine : C.stone, border: "none", borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Check size={15} color={c.done ? "#fff" : C.graphite} />
+                  </button>
+                </div>
+                {c.done && (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: C.graphite }}>Actual</span>
+                    <div style={{ flex: 1, position: "relative", maxWidth: 140 }}>
+                      <input
+                        value={c.actualMinutes}
+                        onChange={(e) => updateCardioMinutes(ci, e.target.value)}
+                        inputMode="numeric"
+                        placeholder="0"
+                        style={{ width: "100%", padding: "8px 40px 8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, background: "#fff", boxSizing: "border-box" }}
+                      />
+                      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11.5, color: C.graphite, pointerEvents: "none" }}>min</span>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            ))}
           </div>
-        ))}
-        <button onClick={addCardio} style={{ background: "none", border: `1px dashed ${C.line}`, borderRadius: 10, color: C.pine, fontSize: 12.5, fontWeight: 600, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-          <HeartPulse size={14} /> Add cardio
-        </button>
-      </div>
+          <p style={{ fontSize: 11.5, color: C.graphite, marginTop: 8, lineHeight: 1.5 }}>
+            Tick off the cardio you completed — it'll be saved to the Activity tab when you save the session.
+          </p>
+        </>
+      )}
 
       <SectionLabel>Session notes</SectionLabel>
       <textarea
@@ -371,9 +408,10 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
         <SessionSummaryModal
           summary={summary}
           onClose={() => {
-            onSave(pendingEntry);
+            onSave(pendingEntry, pendingActivityCardio);
             setSummary(null);
             setPendingEntry(null);
+            setPendingActivityCardio([]);
           }}
         />
       )}
@@ -382,7 +420,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
 }
 
 function SessionSummaryModal({ summary, onClose }) {
-  const { overallPct, gains } = summary;
+  const { overallPct, gains, cardioCount } = summary;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(21,20,15,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ background: C.paper, borderRadius: 20, padding: 26, width: "100%", maxWidth: 360, textAlign: "center" }}>
@@ -416,6 +454,12 @@ function SessionSummaryModal({ summary, onClose }) {
           <p style={{ fontSize: 14, color: C.graphite, margin: "0 0 20px" }}>
             Baseline set for today's lifts — next time you train these, you'll see your progress here.
           </p>
+        )}
+
+        {cardioCount > 0 && (
+          <div style={{ fontSize: 12.5, color: C.pine, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <HeartPulse size={14} /> {cardioCount} cardio session{cardioCount === 1 ? "" : "s"} added to Activity
+          </div>
         )}
 
         <PrimaryButton onClick={onClose}>Done</PrimaryButton>
@@ -511,8 +555,33 @@ function ProgramEditor({ program, onCancel, onSave }) {
       return next;
     });
   }
+  // ---- Cardio planning ----
+  function addCardio(si) {
+    setSessions((prev) => {
+      const next = [...prev];
+      const existing = next[si].cardio || [];
+      next[si] = { ...next[si], cardio: [...existing, { id: uid("cardio"), type: "", minutes: "", note: "" }] };
+      return next;
+    });
+  }
+  function updateCardio(si, ci, field, value) {
+    setSessions((prev) => {
+      const next = [...prev];
+      const cardio = [...(next[si].cardio || [])];
+      cardio[ci] = { ...cardio[ci], [field]: value };
+      next[si] = { ...next[si], cardio };
+      return next;
+    });
+  }
+  function removeCardio(si, ci) {
+    setSessions((prev) => {
+      const next = [...prev];
+      next[si] = { ...next[si], cardio: (next[si].cardio || []).filter((_, i) => i !== ci) };
+      return next;
+    });
+  }
   function addSession() {
-    setSessions((prev) => [...prev, { id: uid("sess"), name: `Session ${prev.length + 1}`, exercises: [] }]);
+    setSessions((prev) => [...prev, { id: uid("sess"), name: `Session ${prev.length + 1}`, exercises: [], cardio: [] }]);
   }
   function removeSession(si) {
     setSessions((prev) => prev.filter((_, i) => i !== si));
@@ -576,8 +645,49 @@ function ProgramEditor({ program, onCancel, onSave }) {
               </div>
             </div>
           ))}
-          <button onClick={() => addExercise(si)} style={{ background: "none", border: "none", color: C.pine, fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+          <button onClick={() => addExercise(si)} style={{ background: "none", border: "none", color: C.pine, fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
             <Plus size={13} /> Add exercise
+          </button>
+
+          {/* Planned cardio */}
+          {(s.cardio || []).map((c, ci) => (
+            <div key={c.id} style={{ background: C.pineTint, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1 }}>
+                  <HeartPulse size={14} color={C.pine} />
+                  <input
+                    placeholder="Cardio type (e.g. Treadmill)"
+                    value={c.type}
+                    onChange={(e) => updateCardio(si, ci, "type", e.target.value)}
+                    style={{ flex: 1, padding: "7px 9px", borderRadius: 7, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fff" }}
+                  />
+                </div>
+                <button onClick={() => removeCardio(si, ci)} style={{ background: "none", border: "none" }}>
+                  <X size={15} color={C.graphite} />
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
+                <div style={{ flex: "1 1 0%", minWidth: 0, position: "relative" }}>
+                  <input
+                    placeholder="Mins"
+                    value={c.minutes}
+                    onChange={(e) => updateCardio(si, ci, "minutes", e.target.value)}
+                    inputMode="numeric"
+                    style={{ width: "100%", padding: "6px 34px 6px 7px", borderRadius: 7, border: `1px solid ${C.line}`, fontSize: 12.5, background: "#fff", boxSizing: "border-box" }}
+                  />
+                  <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: C.graphite, pointerEvents: "none" }}>min</span>
+                </div>
+                <input
+                  placeholder="Intensity / notes (e.g. moderate, incline 5)"
+                  value={c.note}
+                  onChange={(e) => updateCardio(si, ci, "note", e.target.value)}
+                  style={{ flex: "2 1 0%", minWidth: 0, padding: "6px 7px", borderRadius: 7, border: `1px solid ${C.line}`, fontSize: 12.5, background: "#fff" }}
+                />
+              </div>
+            </div>
+          ))}
+          <button onClick={() => addCardio(si)} style={{ background: "none", border: "none", color: C.pine, fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+            <HeartPulse size={13} /> Add cardio
           </button>
         </Card>
       ))}
