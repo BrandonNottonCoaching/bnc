@@ -270,7 +270,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
   const completedCount = rows.filter((r) => r.done).length;
 
   return (
-    <div style={{ padding: "18px 18px 110px" }}>
+    <div style={{ padding: "18px 18px 150px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", padding: 4 }}>
           <ArrowLeft size={19} color={C.ink} />
@@ -398,7 +398,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
         style={{ width: "100%", minHeight: 70, padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, background: C.stone, boxSizing: "border-box", fontFamily: "inherit" }}
       />
 
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 18px calc(18px + env(safe-area-inset-bottom))", background: "linear-gradient(transparent, white 35%)", maxWidth: 480, margin: "0 auto", zIndex: 50 }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "14px 18px calc(14px + env(safe-area-inset-bottom))", background: "#fff", borderTop: `1px solid ${C.line}`, maxWidth: 480, margin: "0 auto", zIndex: 50 }}>
         <PrimaryButton icon={SaveIcon} onClick={handleSaveTap}>
           Save session
         </PrimaryButton>
@@ -595,7 +595,7 @@ function ProgramEditor({ program, onCancel, onSave }) {
   }
 
   return (
-    <div style={{ padding: "18px 18px 110px" }}>
+    <div style={{ padding: "18px 18px 150px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <button onClick={onCancel} style={{ background: "none", border: "none", padding: 4 }}>
           <ArrowLeft size={19} color={C.ink} />
@@ -696,7 +696,7 @@ function ProgramEditor({ program, onCancel, onSave }) {
         Add session
       </GhostButton>
 
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 18px calc(18px + env(safe-area-inset-bottom))", background: "linear-gradient(transparent, white 35%)", maxWidth: 480, margin: "0 auto", zIndex: 50 }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "14px 18px calc(14px + env(safe-area-inset-bottom))", background: "#fff", borderTop: `1px solid ${C.line}`, maxWidth: 480, margin: "0 auto", zIndex: 50 }}>
         <PrimaryButton icon={SaveIcon} onClick={() => onSave({ sessions })}>
           Save program
         </PrimaryButton>
