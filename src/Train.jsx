@@ -422,8 +422,8 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
 function SessionSummaryModal({ summary, onClose }) {
   const { overallPct, gains, cardioCount } = summary;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(21,20,15,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: C.paper, borderRadius: 20, padding: 26, width: "100%", maxWidth: 360, textAlign: "center" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(21,20,15,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflowY: "auto" }}>
+      <div style={{ background: C.paper, borderRadius: 20, padding: 26, width: "100%", maxWidth: 360, textAlign: "center", maxHeight: "88vh", overflowY: "auto" }}>
         <div style={{ width: 56, height: 56, borderRadius: 999, background: C.pineTint, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
           <Trophy size={26} color={C.pineDeep} />
         </div>
