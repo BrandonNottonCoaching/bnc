@@ -365,3 +365,33 @@ export async function saveAdherenceTarget(clientId, { weeklySessions, trackSteps
     );
   if (error) throw error;
 }
+
+/* ============== Shop / recommendations (coach-managed, all clients see) ============== */
+
+export async function listShopItems() {
+  const { data, error } = await supabase
+    .from("shop_items")
+    .select("*")
+    .order("category", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveShopItem(item) {
+  const payload = {
+    category: item.category,
+    name: item.name,
+    note: item.note,
+    code: item.code,
+    url: item.url,
+  };
+  if (item.id) payload.id = item.id; // present -> update, absent -> insert with a new id
+  const { error } = await supabase.from("shop_items").upsert(payload);
+  if (error) throw error;
+}
+
+export async function deleteShopItem(id) {
+  const { error } = await supabase.from("shop_items").delete().eq("id", id);
+  if (error) throw error;
+}
