@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Dumbbell, Camera, ClipboardCheck, Target, ChevronDown, Minus, Plus } from "lucide-react";
+import { Dumbbell, Camera, ClipboardCheck, Target, ChevronDown, Minus, Plus, ShoppingBag } from "lucide-react";
 import { C, todayKey, fmtNice, checkInStatus, PHASE_TYPES, phaseStatus, startOfWeekKey, computeAdherence, scoreColour, scoreLabel } from "./helpers";
 import { Card, SectionLabel, Ring } from "./ui";
 import { getNutritionGoal, getNutritionDay, getActivityGoal, getActivityDay, listWorkouts, listPhotos, listCheckIns, listPhases, getProgram, listActivityDays, listNutritionDays, getAdherenceTarget, saveAdherenceTarget } from "./api";
@@ -297,6 +297,14 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
           <span style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{phases.length ? "View your plan & phases" : "No plan set yet"}</span>
         </div>
         <span style={{ fontSize: 12.5, color: C.graphite }}>{phases.length ? `${phases.length} phase${phases.length === 1 ? "" : "s"}` : ""}</span>
+      </Card>
+
+      <SectionLabel>Recommended</SectionLabel>
+      <Card onClick={() => goTab("shop")} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <ShoppingBag size={18} color={C.pine} />
+          <span style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>Kit, supplements & discounts I rate</span>
+        </div>
       </Card>
     </div>
   );
