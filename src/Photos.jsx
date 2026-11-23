@@ -89,7 +89,7 @@ export default function Photos({ clientId, showToast }) {
         </div>
       )}
 
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
+      <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
       {!compareMode && (
         <PrimaryButton icon={Camera} disabled={uploading} onClick={() => fileRef.current?.click()} style={{ marginBottom: 18 }}>
           {uploading ? "Uploading…" : "Add progress photo"}
@@ -100,7 +100,7 @@ export default function Photos({ clientId, showToast }) {
         <div style={{ padding: 30, textAlign: "center", color: C.graphite, fontSize: 13 }}>Loading…</div>
       ) : (
         <>
-          {photos.length === 0 && <EmptyState icon={Camera} title="No photos yet" sub="Capture your first progress photo." />}
+          {photos.length === 0 && <EmptyState icon={Camera} title="No photos yet" sub="Take one now or choose from your photos." />}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {photos.map((p) => {
               const selected = selA === p.id || selB === p.id;
