@@ -53,11 +53,7 @@ export function uid(p = "id") {
   return p + "_" + Math.random().toString(36).slice(2, 9);
 }
 
-/* Builds a map of exerciseName -> { name, first: {date, volume, topWeight, topReps, setCount}, latest: {...} }
-   "volume" = sum of (weight x reps) across all logged sets for that exercise in a session —
-   the % comparisons shown in the app are based on this, so adding reps or sets counts as
-   progress, not just adding weight to the bar.
-   `workouts` is an array of { date, rows: [{ name, sets: [{weight, reps}] }] } */
+/* Builds a map of exerciseName -> { name, first: {date, volume, topWeight, topReps, setCount}, latest: {...} } */
 export function computeStrengthStats(workouts) {
   const sorted = [...(workouts || [])].sort((a, b) => (a.date < b.date ? -1 : 1));
   const map = {};
@@ -109,48 +105,6 @@ export function resizeImageFile(file, maxW = 800, quality = 0.75) {
   });
 }
 
-export function seedProgram() {
-  return [
-    {
-      id: uid("sess"),
-      name: "Session 1",
-      exercises: [
-        { id: uid("ex"), name: "Cable Curl", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Tricep Ext (cable)", sets: "2", reps: "8-12" },
-      ],
-    },
-    {
-      id: uid("sess"),
-      name: "Session 2",
-      exercises: [
-        { id: uid("ex"), name: "Flat Smith Press", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Low Row", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Walking Lunges", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "DB Shoulder Press", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Hammer Curl (cable)", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Overhead Tricep Ext", sets: "2", reps: "8-12" },
-      ],
-    },
-    {
-      id: uid("sess"),
-      name: "Session 3",
-      exercises: [
-        { id: uid("ex"), name: "Low To High Cable Fly", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "BB Row", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Bulgarian Split Squat", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Lateral Raise DB", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Preacher Curl", sets: "2", reps: "8-12" },
-        { id: uid("ex"), name: "Diamond Press Ups", sets: "2", reps: "8-12" },
-      ],
-    },
-    {
-      id: uid("sess"),
-      name: "Session 4",
-      exercises: [{ id: uid("ex"), name: "Tricep Ext (cable)", sets: "2", reps: "8-12" }],
-    },
-  ];
-}
-
 export const C = {
   ink: "#15140F",
   paper: "#FFFFFF",
@@ -167,9 +121,7 @@ export const C = {
   gold: "#9C8242",
 };
 
-/* Weekly check-in is due every Monday.
-   Given the date of the most recent check-in (YYYY-MM-DD string or null),
-   returns { dueToday, daysUntil, overdue } relative to today. */
+/* Weekly check-in is due every Monday. */
 export function checkInStatus(lastCheckInDate) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -203,13 +155,10 @@ export const PHASE_TYPES = {
   muscle_gain: { label: "Muscle gain", color: "#1C5236", tint: "#E7EFE8" },
 };
 
-/* Given a phase { start_date, weeks }, returns timing info relative to today:
-   { startKey, endKey, totalDays, dayInto, weeksElapsed, weeksLeft, status }
-   status = "upcoming" | "current" | "done" */
 export function phaseStatus(phase) {
   const start = phase.start_date;
-  const endExclusive = addDaysKey(start, phase.weeks * 7); // day after last day
-  const endKey = addDaysKey(endExclusive, -1);            // last day of phase
+  const endExclusive = addDaysKey(start, phase.weeks * 7);
+  const endKey = addDaysKey(endExclusive, -1);
   const today = todayKey();
 
   const msDay = 86400000;
@@ -217,7 +166,7 @@ export function phaseStatus(phase) {
   const [ty, tm, td] = today.split("-").map(Number);
   const startDate = new Date(sy, sm - 1, sd);
   const todayDate = new Date(ty, tm - 1, td);
-  const dayInto = Math.floor((todayDate - startDate) / msDay); // 0 on start day
+  const dayInto = Math.floor((todayDate - startDate) / msDay);
 
   const totalDays = phase.weeks * 7;
   let status = "current";
@@ -228,4 +177,77 @@ export function phaseStatus(phase) {
   const weeksLeft = status === "done" ? 0 : status === "upcoming" ? phase.weeks : Math.max(0, phase.weeks - Math.floor(dayInto / 7));
 
   return { startKey: start, endKey, totalDays, dayInto, weeksElapsed, weeksLeft, status };
+}
+
+/* ============== Weekly adherence score ============== */
+
+// Monday of the current week, as a YYYY-MM-DD key.
+export function startOfWeekKey() {
+  const now = new Date();
+  const daysSinceMonday = (now.getDay() + 6) % 7;
+  return addDaysKey(todayKey(), -daysSinceMonday);
+}
+
+// Colour + label for a 0-100 score. Green 80+, amber 50-79, red under 50.
+export function scoreColour(score) {
+  if (score >= 80) return C.pine;
+  if (score >= 50) return C.amber;
+  return C.danger;
+}
+export function scoreLabel(score) {
+  if (score >= 80) return "On track";
+  if (score >= 50) return "Slipping";
+  return "Off track";
+}
+
+/* Works out a weekly adherence score out of 100 from the data the app already has.
+   Each area is scored 0-100, then blended by weight (training 30, food 30, steps 25, cardio 15).
+   Cardio is only counted when the program has planned cardio; otherwise its weight drops out. */
+export function computeAdherence({ workouts, program, sessionTarget, nutritionDays, activityDays, stepGoal }) {
+  const weekStart = startOfWeekKey();
+  const today = todayKey();
+  const [wy, wm, wd] = weekStart.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  const dayCount = Math.round((new Date(ty, tm - 1, td) - new Date(wy, wm - 1, wd)) / 86400000) + 1;
+  const elapsed = Math.max(1, Math.min(7, dayCount));
+
+  // Training: sessions logged this week vs the coach-set weekly target.
+  const sessionsThisWeek = (workouts || []).filter((w) => w.date >= weekStart).length;
+  const target = Math.max(1, Number(sessionTarget) || 1);
+  const trainingScore = Math.min(100, Math.round((sessionsThisWeek / target) * 100));
+
+  // Food tracking: days a meal was logged (just for logging, not hitting the numbers).
+  const foodDays = (nutritionDays || []).filter(
+    (d) => d.date >= weekStart && Array.isArray(d.meals) && d.meals.length > 0
+  ).length;
+  const foodScore = Math.min(100, Math.round((foodDays / elapsed) * 100));
+
+  // Steps: days the step goal was hit.
+  const goal = Number(stepGoal) || 0;
+  const stepsDays = (activityDays || []).filter(
+    (d) => d.date >= weekStart && goal > 0 && Number(d.steps || 0) >= goal
+  ).length;
+  const stepsScore = Math.min(100, Math.round((stepsDays / elapsed) * 100));
+
+  // Cardio: cardio sessions done this week vs cardio planned in the program.
+  const plannedCardio = (program || []).reduce((n, s) => n + ((s.cardio || []).length), 0);
+  const doneCardio = (activityDays || [])
+    .filter((d) => d.date >= weekStart)
+    .reduce((n, d) => n + ((d.cardio || []).length), 0);
+  const cardioApplicable = plannedCardio > 0;
+  const cardioScore = cardioApplicable ? Math.min(100, Math.round((doneCardio / plannedCardio) * 100)) : 0;
+
+  const pillars = [
+    { key: "training", label: "Training", score: trainingScore, weight: 30, detail: `${sessionsThisWeek} of ${target} planned session${target === 1 ? "" : "s"} logged` },
+    { key: "food", label: "Food tracking", score: foodScore, weight: 30, detail: `Logged meals on ${foodDays} of ${elapsed} day${elapsed === 1 ? "" : "s"}` },
+    { key: "steps", label: "Steps", score: stepsScore, weight: 25, detail: goal > 0 ? `Hit step goal on ${stepsDays} of ${elapsed} day${elapsed === 1 ? "" : "s"}` : "No step goal set" },
+  ];
+  if (cardioApplicable) {
+    pillars.push({ key: "cardio", label: "Cardio", score: cardioScore, weight: 15, detail: `${doneCardio} of ${plannedCardio} planned cardio done` });
+  }
+
+  const totalWeight = pillars.reduce((n, p) => n + p.weight, 0);
+  const overall = Math.round(pillars.reduce((n, p) => n + p.score * p.weight, 0) / totalWeight);
+
+  return { overall, pillars, sessionTarget: target };
 }
