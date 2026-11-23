@@ -345,16 +345,23 @@ export async function deletePhase(id) {
 export async function getAdherenceTarget(clientId) {
   const { data, error } = await supabase
     .from("adherence_targets")
-    .select("weekly_sessions")
+    .select("weekly_sessions, track_steps, track_food")
     .eq("client_id", clientId)
     .maybeSingle();
   if (error) throw error;
-  return data ? data.weekly_sessions : 3;
+  return {
+    weeklySessions: data ? data.weekly_sessions : 3,
+    trackSteps: data ? data.track_steps : true,
+    trackFood: data ? data.track_food : true,
+  };
 }
 
-export async function saveAdherenceTarget(clientId, weeklySessions) {
+export async function saveAdherenceTarget(clientId, { weeklySessions, trackSteps, trackFood }) {
   const { error } = await supabase
     .from("adherence_targets")
-    .upsert({ client_id: clientId, weekly_sessions: weeklySessions }, { onConflict: "client_id" });
+    .upsert(
+      { client_id: clientId, weekly_sessions: weeklySessions, track_steps: trackSteps, track_food: trackFood },
+      { onConflict: "client_id" }
+    );
   if (error) throw error;
 }
