@@ -65,6 +65,7 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
       <LogSession
         session={activeSession}
         workouts={workouts}
+        clientId={clientId}
         onBack={() => setScreen("sessions")}
         onSave={async (entry, cardioForActivity) => {
           await persistWorkout(entry);
@@ -151,11 +152,13 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
   );
 }
 
-function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName }) {
-  // Find the most recent previous logged performance for each exercise name.
+function LogSession({ session, workouts, clientId, onBack, onSave, viewerRole, viewerName }) {
+  // Find the most recent previous logged performance for each exercise name
+  // (ignores anything already logged today, so "last time" means the prior session).
   function lastPerformanceFor(name) {
     const key = name.trim().toLowerCase();
     for (const w of workouts) {
+      if (w.date === todayKey()) continue;
       const match = (w.rows || []).find((r) => r.name.trim().toLowerCase() === key);
       if (match) {
         const realSets = (match.sets || []).filter((s) => s.weight || s.reps);
@@ -167,8 +170,9 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
     return null;
   }
 
-  const [rows, setRows] = useState(
-    session.exercises.map((ex) => ({
+  // Fresh (empty) starting state, used both for a brand-new session and "Start fresh".
+  function freshRows() {
+    return session.exercises.map((ex) => ({
       exerciseId: ex.id,
       name: ex.name,
       targetSets: ex.sets,
@@ -176,23 +180,68 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       sets: Array.from({ length: Number(ex.sets) || 1 }, () => ({ weight: "", reps: "" })),
       note: "",
       done: false,
-    }))
-  );
-  // Planned cardio from the program, with a done tick and editable actual minutes.
-  const [cardioRows, setCardioRows] = useState(
-    (session.cardio || []).map((c) => ({
+    }));
+  }
+  function freshCardio() {
+    return (session.cardio || []).map((c) => ({
       id: c.id || uid("cardio"),
       type: c.type,
       minutes: c.minutes,
       note: c.note || "",
       actualMinutes: String(c.minutes || ""),
       done: false,
-    }))
-  );
-  const [notes, setNotes] = useState("");
+    }));
+  }
+
+  // --- Resume: keep an in-progress draft on this device so leaving mid-session doesn't lose it. ---
+  const draftKey = `bnc-draft-${clientId}-${session.id}-${todayKey()}`;
+  function clearDraft() {
+    try { localStorage.removeItem(draftKey); } catch (e) {}
+  }
+  // Load today's draft once (if there is one) when the screen first opens.
+  const [initialDraft] = useState(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [rows, setRows] = useState(() => initialDraft?.rows || freshRows());
+  // Planned cardio from the program, with a done tick and editable actual minutes.
+  const [cardioRows, setCardioRows] = useState(() => initialDraft?.cardioRows || freshCardio());
+  const [notes, setNotes] = useState(() => initialDraft?.notes || "");
+  const [restored, setRestored] = useState(!!initialDraft);
   const [pendingEntry, setPendingEntry] = useState(null);
   const [pendingActivityCardio, setPendingActivityCardio] = useState([]);
   const [summary, setSummary] = useState(null);
+
+  // Autosave the draft whenever anything changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ rows, cardioRows, notes, date: todayKey() }));
+    } catch (e) {}
+  }, [rows, cardioRows, notes]);
+
+  // Tidy up any leftover drafts for this session from earlier days.
+  useEffect(() => {
+    try {
+      const prefix = `bnc-draft-${clientId}-${session.id}-`;
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix) && k !== draftKey) localStorage.removeItem(k);
+      }
+    } catch (e) {}
+  }, []);
+
+  function startFresh() {
+    setRows(freshRows());
+    setCardioRows(freshCardio());
+    setNotes("");
+    setRestored(false);
+    clearDraft();
+  }
 
   function updateSet(rowIdx, setIdx, field, value) {
     setRows((prev) => {
@@ -250,16 +299,26 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
     // For Activity, only need type + minutes (matches Activity's cardio shape).
     const activityCardio = doneCardio.map((c) => ({ type: c.type, minutes: c.minutes, distance: null, cal: null }));
 
-    const nextWorkouts = [entry, ...workouts.filter((w) => w.date !== todayKey())];
-    const stats = computeStrengthStats(nextWorkouts);
-    const todayNames = new Set(entry.rows.map((r) => r.name.trim().toLowerCase()));
+    // Session-to-session change: compare each lift's volume today vs the last time it was trained.
     const gains = [];
-    todayNames.forEach((key) => {
-      const s = stats[key];
-      if (s && s.first.date !== todayKey() && s.first.volume > 0) {
-        const pct = ((s.latest.volume - s.first.volume) / s.first.volume) * 100;
-        gains.push({ name: s.name, pct, toWeight: s.latest.topWeight, toReps: s.latest.topReps, toSets: s.latest.setCount });
-      }
+    rows.forEach((row) => {
+      const validToday = (row.sets || [])
+        .map((s) => ({ weight: parseFloat(s.weight), reps: parseFloat(s.reps) }))
+        .filter((s) => s.weight > 0 && s.reps > 0);
+      if (validToday.length === 0) return;
+      const todayVolume = validToday.reduce((sum, s) => sum + s.weight * s.reps, 0);
+      const top = validToday.reduce((best, s) => (s.weight > best.weight ? s : best), validToday[0]);
+
+      const prev = lastPerformanceFor(row.name);
+      if (!prev) return; // first time doing this lift — nothing to compare to yet
+      const validPrev = (prev.sets || [])
+        .map((s) => ({ weight: parseFloat(s.weight), reps: parseFloat(s.reps) }))
+        .filter((s) => s.weight > 0 && s.reps > 0);
+      const prevVolume = validPrev.reduce((sum, s) => sum + s.weight * s.reps, 0);
+      if (prevVolume <= 0) return;
+
+      const pct = ((todayVolume - prevVolume) / prevVolume) * 100;
+      gains.push({ name: row.name, pct, toWeight: top.weight, toReps: top.reps, toSets: validToday.length, fromDate: prev.date });
     });
     const overallPct = gains.length ? gains.reduce((sum, g) => sum + g.pct, 0) / gains.length : null;
     setPendingEntry(entry);
@@ -280,6 +339,18 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
       <p style={{ fontSize: 13, color: C.graphite, marginLeft: 30, marginBottom: 16 }}>
         {completedCount}/{rows.length} exercises complete {viewerRole === "trainer" ? "· logging together" : ""}
       </p>
+
+      {restored && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.pineTint, border: `1px solid ${C.pine}`, borderRadius: 12, padding: "10px 12px", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <SaveIcon size={15} color={C.pine} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 12.5, color: C.pineDeep, fontWeight: 600 }}>Picked up where you left off earlier today.</span>
+          </div>
+          <button onClick={startFresh} style={{ flexShrink: 0, background: "#fff", border: `1px solid ${C.pine}`, color: C.pine, borderRadius: 999, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>
+            Start fresh
+          </button>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {rows.map((row, ri) => {
@@ -408,6 +479,7 @@ function LogSession({ session, workouts, onBack, onSave, viewerRole, viewerName 
         <SessionSummaryModal
           summary={summary}
           onClose={() => {
+            clearDraft();
             onSave(pendingEntry, pendingActivityCardio);
             setSummary(null);
             setPendingEntry(null);
@@ -431,7 +503,7 @@ function SessionSummaryModal({ summary, onClose }) {
 
         {overallPct !== null ? (
           <>
-            <p style={{ fontSize: 14, color: C.graphite, margin: "0 0 4px" }}>Total volume since you started:</p>
+            <p style={{ fontSize: 14, color: C.graphite, margin: "0 0 4px" }}>Total volume vs your last session:</p>
             <p style={{ fontSize: 11, color: C.graphite, margin: "0 0 12px" }}>(weight × reps × sets)</p>
             <div style={{ fontFamily: "Playfair Display, serif", fontSize: 38, fontWeight: 700, color: overallPct >= 0 ? C.pine : C.danger, marginBottom: 18 }}>
               {overallPct >= 0 ? "+" : ""}{overallPct.toFixed(1)}%
@@ -442,6 +514,7 @@ function SessionSummaryModal({ summary, onClose }) {
                   <div>
                     <div style={{ fontWeight: 600, color: C.ink }}>{g.name}</div>
                     <div style={{ fontSize: 11, color: C.graphite }}>top set today: {g.toWeight}kg × {g.toReps}, {g.toSets} sets</div>
+                    <div style={{ fontSize: 10.5, color: C.graphite }}>vs last session ({fmtShort(g.fromDate)})</div>
                   </div>
                   <span style={{ color: g.pct >= 0 ? C.pine : C.danger, fontWeight: 700 }}>
                     {g.pct >= 0 ? "+" : ""}{g.pct.toFixed(0)}%
