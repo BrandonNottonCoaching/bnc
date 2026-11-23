@@ -129,6 +129,17 @@ export async function saveNutritionDay(clientId, date, meals) {
   if (error) throw error;
 }
 
+// All nutrition days from a date onward — used for the weekly adherence score.
+export async function listNutritionDays(clientId, fromDate) {
+  const { data, error } = await supabase
+    .from("nutrition_days")
+    .select("date, meals")
+    .eq("client_id", clientId)
+    .gte("date", fromDate);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function listSavedFoods(clientId) {
   const { data, error } = await supabase
     .from("saved_foods")
@@ -326,5 +337,24 @@ export async function updatePhase(id, phase) {
 
 export async function deletePhase(id) {
   const { error } = await supabase.from("plan_phases").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ============== Adherence target (coach-set weekly sessions) ============== */
+
+export async function getAdherenceTarget(clientId) {
+  const { data, error } = await supabase
+    .from("adherence_targets")
+    .select("weekly_sessions")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? data.weekly_sessions : 3;
+}
+
+export async function saveAdherenceTarget(clientId, weeklySessions) {
+  const { error } = await supabase
+    .from("adherence_targets")
+    .upsert({ client_id: clientId, weekly_sessions: weeklySessions }, { onConflict: "client_id" });
   if (error) throw error;
 }
