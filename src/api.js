@@ -375,7 +375,18 @@ export async function listShopItems() {
     .order("category", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return data || [];
+  return (data || []).map((it) => ({
+    ...it,
+    image: it.image_path ? supabase.storage.from("shop-photos").getPublicUrl(it.image_path).data.publicUrl : null,
+  }));
+}
+
+export async function uploadShopImage(blob) {
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage.from("shop-photos").upload(path, blob, { contentType: "image/jpeg" });
+  if (error) throw error;
+  const url = supabase.storage.from("shop-photos").getPublicUrl(path).data.publicUrl;
+  return { path, url };
 }
 
 export async function saveShopItem(item) {
@@ -385,13 +396,19 @@ export async function saveShopItem(item) {
     note: item.note,
     code: item.code,
     url: item.url,
+    price: item.price || null,
+    sale_price: item.sale_price || null,
+    image_path: item.image_path || null,
   };
   if (item.id) payload.id = item.id; // present -> update, absent -> insert with a new id
   const { error } = await supabase.from("shop_items").upsert(payload);
   if (error) throw error;
 }
 
-export async function deleteShopItem(id) {
+export async function deleteShopItem(id, imagePath) {
+  if (imagePath) {
+    try { await supabase.storage.from("shop-photos").remove([imagePath]); } catch (e) {}
+  }
   const { error } = await supabase.from("shop_items").delete().eq("id", id);
   if (error) throw error;
 }
