@@ -18,6 +18,8 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
   // Adherence
   const [adhData, setAdhData] = useState(null);
   const [sessionTarget, setSessionTarget] = useState(3);
+  const [trackSteps, setTrackSteps] = useState(true);
+  const [trackFood, setTrackFood] = useState(true);
   const [adhOpen, setAdhOpen] = useState(false);
 
   useEffect(() => {
@@ -49,7 +51,9 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
       setLastPhoto(photos[0] || null);
       setLastCheckIn(checkIns[0] || null);
       setPhases(planPhases);
-      setSessionTarget(target);
+      setSessionTarget(target.weeklySessions);
+      setTrackSteps(target.trackSteps);
+      setTrackFood(target.trackFood);
       setAdhData({ workouts, program: program || [], nutritionDays: weekNutrition, activityDays: weekActivity, stepGoal: stepGoalVal });
       setLoading(false);
     })();
@@ -58,11 +62,33 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
     };
   }, [clientId]);
 
+  async function persistTarget(next) {
+    try {
+      await saveAdherenceTarget(clientId, {
+        weeklySessions: next.weeklySessions ?? sessionTarget,
+        trackSteps: next.trackSteps ?? trackSteps,
+        trackFood: next.trackFood ?? trackFood,
+      });
+    } catch (e) { console.error(e); }
+  }
+
   async function changeTarget(delta) {
     const next = Math.max(1, Math.min(14, sessionTarget + delta));
     if (next === sessionTarget) return;
     setSessionTarget(next);
-    try { await saveAdherenceTarget(clientId, next); } catch (e) { console.error(e); }
+    persistTarget({ weeklySessions: next });
+  }
+
+  function toggleSteps() {
+    const val = !trackSteps;
+    setTrackSteps(val);
+    persistTarget({ trackSteps: val });
+  }
+
+  function toggleFood() {
+    const val = !trackFood;
+    setTrackFood(val);
+    persistTarget({ trackFood: val });
   }
 
   if (loading) {
@@ -76,7 +102,7 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
     daysAgo = Math.round((d0 - d1) / 86400000);
   }
 
-  const adherence = adhData ? computeAdherence({ ...adhData, sessionTarget }) : null;
+  const adherence = adhData ? computeAdherence({ ...adhData, sessionTarget, trackSteps, trackFood }) : null;
 
   return (
     <div style={{ padding: "18px 18px 90px" }}>
@@ -126,17 +152,33 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
                   ))}
 
                   {isTrainerViewing && (
-                    <div style={{ marginTop: 4, background: C.stone, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600 }}>Weekly session target</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <button onClick={() => changeTarget(-1)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Minus size={14} color={C.ink} />
-                        </button>
-                        <span style={{ fontWeight: 700, fontSize: 15, minWidth: 16, textAlign: "center" }}>{sessionTarget}</span>
-                        <button onClick={() => changeTarget(1)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Plus size={14} color={C.ink} />
-                        </button>
+                    <div style={{ marginTop: 4, background: C.stone, borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: C.graphite, marginBottom: 8 }}>Coach settings · only you see this</div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600 }}>Weekly session target</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <button onClick={() => changeTarget(-1)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Minus size={14} color={C.ink} />
+                          </button>
+                          <span style={{ fontWeight: 700, fontSize: 15, minWidth: 16, textAlign: "center" }}>{sessionTarget}</span>
+                          <button onClick={() => changeTarget(1)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Plus size={14} color={C.ink} />
+                          </button>
+                        </div>
                       </div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.line}` }}>
+                        <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600 }}>Count food tracking</span>
+                        <Switch on={trackFood} onClick={toggleFood} />
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+                        <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600 }}>Count steps</span>
+                        <Switch on={trackSteps} onClick={toggleSteps} />
+                      </div>
+
+                      <div style={{ fontSize: 11, color: C.graphite, marginTop: 9 }}>Turn one off and the score re-splits across what's left.</div>
                     </div>
                   )}
                 </div>
@@ -257,5 +299,39 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
         <span style={{ fontSize: 12.5, color: C.graphite }}>{phases.length ? `${phases.length} phase${phases.length === 1 ? "" : "s"}` : ""}</span>
       </Card>
     </div>
+  );
+}
+
+function Switch({ on, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: 44,
+        height: 26,
+        borderRadius: 999,
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        background: on ? C.pine : C.stoneDark,
+        position: "relative",
+        transition: "background .2s",
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 3,
+          left: on ? 21 : 3,
+          width: 20,
+          height: 20,
+          borderRadius: 999,
+          background: "#fff",
+          transition: "left .2s",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+        }}
+      />
+    </button>
   );
 }
