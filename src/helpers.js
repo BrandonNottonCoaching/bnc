@@ -203,7 +203,7 @@ export function scoreLabel(score) {
 /* Works out a weekly adherence score out of 100 from the data the app already has.
    Each area is scored 0-100, then blended by weight (training 30, food 30, steps 25, cardio 15).
    Cardio is only counted when the program has planned cardio; otherwise its weight drops out. */
-export function computeAdherence({ workouts, program, sessionTarget, nutritionDays, activityDays, stepGoal }) {
+export function computeAdherence({ workouts, program, sessionTarget, nutritionDays, activityDays, stepGoal, trackSteps = true, trackFood = true }) {
   const weekStart = startOfWeekKey();
   const today = todayKey();
   const [wy, wm, wd] = weekStart.split("-").map(Number);
@@ -239,9 +239,13 @@ export function computeAdherence({ workouts, program, sessionTarget, nutritionDa
 
   const pillars = [
     { key: "training", label: "Training", score: trainingScore, weight: 30, detail: `${sessionsThisWeek} of ${target} planned session${target === 1 ? "" : "s"} logged` },
-    { key: "food", label: "Food tracking", score: foodScore, weight: 30, detail: `Logged meals on ${foodDays} of ${elapsed} day${elapsed === 1 ? "" : "s"}` },
-    { key: "steps", label: "Steps", score: stepsScore, weight: 25, detail: goal > 0 ? `Hit step goal on ${stepsDays} of ${elapsed} day${elapsed === 1 ? "" : "s"}` : "No step goal set" },
   ];
+  if (trackFood) {
+    pillars.push({ key: "food", label: "Food tracking", score: foodScore, weight: 30, detail: `Logged meals on ${foodDays} of ${elapsed} day${elapsed === 1 ? "" : "s"}` });
+  }
+  if (trackSteps) {
+    pillars.push({ key: "steps", label: "Steps", score: stepsScore, weight: 25, detail: goal > 0 ? `Hit step goal on ${stepsDays} of ${elapsed} day${elapsed === 1 ? "" : "s"}` : "No step goal set" });
+  }
   if (cardioApplicable) {
     pillars.push({ key: "cardio", label: "Cardio", score: cardioScore, weight: 15, detail: `${doneCardio} of ${plannedCardio} planned cardio done` });
   }
