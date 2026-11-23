@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Dumbbell, Camera, ClipboardCheck, Target, Calendar } from "lucide-react";
-import { C, todayKey, fmtNice, checkInStatus, PHASE_TYPES, phaseStatus } from "./helpers";
+import { Dumbbell, Camera, ClipboardCheck, Target, ChevronDown, Minus, Plus } from "lucide-react";
+import { C, todayKey, fmtNice, checkInStatus, PHASE_TYPES, phaseStatus, startOfWeekKey, computeAdherence, scoreColour, scoreLabel } from "./helpers";
 import { Card, SectionLabel, Ring } from "./ui";
-import { getNutritionGoal, getNutritionDay, getActivityGoal, getActivityDay, listWorkouts, listPhotos, listCheckIns, listPhases } from "./api";
+import { getNutritionGoal, getNutritionDay, getActivityGoal, getActivityDay, listWorkouts, listPhotos, listCheckIns, listPhases, getProgram, listActivityDays, listNutritionDays, getAdherenceTarget, saveAdherenceTarget } from "./api";
 
 export default function Home({ clientId, clientName, isTrainerViewing, goTab }) {
   const [loading, setLoading] = useState(true);
@@ -15,12 +15,18 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
   const [lastCheckIn, setLastCheckIn] = useState(null);
   const [phases, setPhases] = useState([]);
 
+  // Adherence
+  const [adhData, setAdhData] = useState(null);
+  const [sessionTarget, setSessionTarget] = useState(3);
+  const [adhOpen, setAdhOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     (async () => {
       const tk = todayKey();
-      const [goal, day, stepGoalVal, activityDay, workouts, photos, checkIns, planPhases] = await Promise.all([
+      const weekStart = startOfWeekKey();
+      const [goal, day, stepGoalVal, activityDay, workouts, photos, checkIns, planPhases, program, weekActivity, weekNutrition, target] = await Promise.all([
         getNutritionGoal(clientId),
         getNutritionDay(clientId, tk),
         getActivityGoal(clientId),
@@ -29,6 +35,10 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
         listPhotos(clientId),
         listCheckIns(clientId),
         listPhases(clientId),
+        getProgram(clientId),
+        listActivityDays(clientId, weekStart),
+        listNutritionDays(clientId, weekStart),
+        getAdherenceTarget(clientId),
       ]);
       if (cancelled) return;
       setCalGoal(goal.cal);
@@ -39,12 +49,21 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
       setLastPhoto(photos[0] || null);
       setLastCheckIn(checkIns[0] || null);
       setPhases(planPhases);
+      setSessionTarget(target);
+      setAdhData({ workouts, program: program || [], nutritionDays: weekNutrition, activityDays: weekActivity, stepGoal: stepGoalVal });
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [clientId]);
+
+  async function changeTarget(delta) {
+    const next = Math.max(1, Math.min(14, sessionTarget + delta));
+    if (next === sessionTarget) return;
+    setSessionTarget(next);
+    try { await saveAdherenceTarget(clientId, next); } catch (e) { console.error(e); }
+  }
 
   if (loading) {
     return <div style={{ padding: 40, textAlign: "center", color: C.graphite, fontSize: 13 }}>Loading…</div>;
@@ -57,6 +76,8 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
     daysAgo = Math.round((d0 - d1) / 86400000);
   }
 
+  const adherence = adhData ? computeAdherence({ ...adhData, sessionTarget }) : null;
+
   return (
     <div style={{ padding: "18px 18px 90px" }}>
       <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 22, color: C.ink, marginBottom: 2 }}>
@@ -65,6 +86,65 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
       <p style={{ fontSize: 13.5, color: C.graphite, marginBottom: 18 }}>
         {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
       </p>
+
+      {adherence && (() => {
+        const col = scoreColour(adherence.overall);
+        return (
+          <>
+            <SectionLabel>This week</SectionLabel>
+            <Card style={{ marginBottom: 16 }}>
+              <div onClick={() => setAdhOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
+                <div style={{ width: 72, height: 72, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `conic-gradient(${col} ${adherence.overall}%, ${C.stoneDark} 0)` }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 999, background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <b style={{ fontFamily: "Playfair Display, serif", fontSize: 20, color: C.ink, lineHeight: 1 }}>{adherence.overall}</b>
+                    <span style={{ fontSize: 8, color: C.graphite, textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 1 }}>/ 100</span>
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, color: C.ink }}>Adherence · <span style={{ color: col }}>{scoreLabel(adherence.overall)}</span></div>
+                  <div style={{ fontSize: 12, color: C.graphite, marginTop: 3 }}>Training, steps, cardio &amp; food tracking</div>
+                  <div style={{ fontSize: 12, color: C.pine, fontWeight: 600, marginTop: 5, display: "flex", alignItems: "center", gap: 3 }}>
+                    {adhOpen ? "Hide breakdown" : "Tap for breakdown"}
+                    <ChevronDown size={13} style={{ transform: adhOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </div>
+                </div>
+              </div>
+
+              {adhOpen && (
+                <div style={{ marginTop: 14, borderTop: `1px solid ${C.line}`, paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {adherence.pillars.map((p) => (
+                    <div key={p.key}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: C.ink }}>{p.label}</span>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: scoreColour(p.score) }}>{p.score}</span>
+                      </div>
+                      <div style={{ height: 8, background: C.stone, borderRadius: 999, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${p.score}%`, background: scoreColour(p.score), borderRadius: 999 }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: C.graphite, marginTop: 4 }}>{p.detail}</div>
+                    </div>
+                  ))}
+
+                  {isTrainerViewing && (
+                    <div style={{ marginTop: 4, background: C.stone, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600 }}>Weekly session target</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <button onClick={() => changeTarget(-1)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Minus size={14} color={C.ink} />
+                        </button>
+                        <span style={{ fontWeight: 700, fontSize: 15, minWidth: 16, textAlign: "center" }}>{sessionTarget}</span>
+                        <button onClick={() => changeTarget(1)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Plus size={14} color={C.ink} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          </>
+        );
+      })()}
 
       {(() => {
         const current = phases.find((p) => phaseStatus(p).status === "current");
@@ -148,15 +228,6 @@ export default function Home({ clientId, clientName, isTrainerViewing, goTab }) 
             <Dumbbell size={20} color={C.graphite} />
           </div>
         )}
-      </Card>
-
-      <SectionLabel>Book a session</SectionLabel>
-      <Card onClick={() => goTab("book")} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Calendar size={18} color={C.pine} />
-          <span style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>Book a session with Brandon</span>
-        </div>
-        <span style={{ fontSize: 12.5, color: C.graphite }}>Open</span>
       </Card>
 
       <SectionLabel>Progress photos</SectionLabel>
