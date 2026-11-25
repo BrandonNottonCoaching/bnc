@@ -4,6 +4,15 @@ import { C, todayKey, addDaysKey, fmtNice, fmtShort, last7Keys } from "./helpers
 import { Card, SectionLabel, Ring, PrimaryButton, GhostButton, TextField, Sheet, EmptyState } from "./ui";
 import { getActivityGoal, saveActivityGoal, getActivityDay, saveActivityDay, listActivityDays } from "./api";
 
+// Bar colour by how the day's steps did against the goal.
+function stepColour(steps, goal) {
+  if (!steps || steps <= 0) return C.stoneDark; // nothing logged
+  const pct = steps / (goal || 1);
+  if (pct >= 1) return C.pine;    // green: hit goal
+  if (pct >= 0.5) return C.amber; // orange: part way
+  return C.gold;                  // yellow: well short
+}
+
 export default function Activity({ clientId, showToast }) {
   const [stepGoal, setStepGoal] = useState(8000);
   const [dateKey, setDateKey] = useState(todayKey());
@@ -23,8 +32,10 @@ export default function Activity({ clientId, showToast }) {
     return () => { cancelled = true; };
   }, [clientId]);
 
+  // The 7 days ending on the currently selected date, so it moves as you scroll back.
   async function refreshWeek() {
-    const keys = last7Keys();
+    const keys = [];
+    for (let i = 6; i >= 0; i--) keys.push(addDaysKey(dateKey, -i));
     const rows = await listActivityDays(clientId, keys[0]);
     const byDate = Object.fromEntries(rows.map((r) => [r.date, r.steps]));
     setWeek(keys.map((k) => ({ key: k, steps: byDate[k] || 0 })));
@@ -102,17 +113,26 @@ export default function Activity({ clientId, showToast }) {
             </div>
           </Card>
 
-          <SectionLabel>Last 7 days</SectionLabel>
+          <SectionLabel>7 day steps</SectionLabel>
           <Card>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90 }}>
-              {week.map((w) => (
-                <div key={w.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: "100%", height: 70, display: "flex", alignItems: "flex-end" }}>
-                    <div style={{ width: "100%", height: `${(w.steps / maxStep) * 100}%`, background: w.steps >= stepGoal ? C.pine : C.stoneDark, borderRadius: 5, minHeight: 3 }} />
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 96 }}>
+              {week.map((w) => {
+                const isSel = w.key === dateKey;
+                const dayNum = Number(w.key.split("-")[2]);
+                return (
+                  <div key={w.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: "100%", height: 70, display: "flex", alignItems: "flex-end" }}>
+                      <div style={{ width: "100%", height: `${(w.steps / maxStep) * 100}%`, background: stepColour(w.steps, stepGoal), borderRadius: 5, minHeight: 3, border: isSel ? `2px solid ${C.ink}` : "none", boxSizing: "border-box" }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: isSel ? C.ink : C.graphite, fontWeight: isSel ? 700 : 500 }}>{dayNum}</span>
                   </div>
-                  <span style={{ fontSize: 9.5, color: C.graphite }}>{fmtShort(w.key).split(" ")[1]}</span>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 12, marginTop: 10, flexWrap: "wrap", fontSize: 10.5, color: C.graphite }}>
+              <LegendDot color={C.pine} label="Goal hit" />
+              <LegendDot color={C.amber} label="Part way" />
+              <LegendDot color={C.gold} label="Short" />
             </div>
           </Card>
 
@@ -138,6 +158,14 @@ export default function Activity({ clientId, showToast }) {
       {showCardio && <CardioSheet onClose={() => setShowCardio(false)} onSave={addCardio} />}
       {showGoal && <StepGoalSheet goal={stepGoal} onClose={() => setShowGoal(false)} onSave={saveGoalVal} />}
     </div>
+  );
+}
+
+function LegendDot({ color, label }) {
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{ width: 9, height: 9, borderRadius: 3, background: color, display: "inline-block" }} /> {label}
+    </span>
   );
 }
 
