@@ -4,13 +4,17 @@ import { C, todayKey, fmtNice, fmtShort, uid, computeStrengthStats } from "./hel
 import { Card, SectionLabel, PrimaryButton, GhostButton, EmptyState } from "./ui";
 import { getProgram, saveProgram, listWorkouts, saveWorkout, getActivityDay, saveActivityDay } from "./api";
 
-export default function Train({ clientId, viewerRole, viewerName, viewingClientName, showToast, onFullscreenChange }) {
+export default function Train({ clientId, viewerRole, viewerName, viewingClientName, showToast, onFullscreenChange, logDate }) {
   const [loading, setLoading] = useState(true);
   const [program, setProgram] = useState({ sessions: [] });
   const [workouts, setWorkouts] = useState([]);
   const [screen, setScreen] = useState("sessions"); // sessions | log | history
   const [activeSession, setActiveSession] = useState(null);
   const [editingProgram, setEditingProgram] = useState(false);
+
+  // The day this session is being logged for (today normally, or a past day when opened from the history).
+  const logKey = logDate || todayKey();
+  const backdated = logKey !== todayKey();
 
   useEffect(() => {
     let cancelled = false;
@@ -44,16 +48,15 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
     await saveWorkout(clientId, entry);
   }
 
-  // Append any ticked-off cardio into today's Activity cardio list.
+  // Append any ticked-off cardio into the Activity cardio list for the logged day.
   async function logCardioToActivity(cardioEntries) {
     if (!cardioEntries || cardioEntries.length === 0) return;
-    const tk = todayKey();
-    const activityDay = await getActivityDay(clientId, tk);
+    const activityDay = await getActivityDay(clientId, logKey);
     const merged = {
       steps: activityDay.steps || 0,
       cardio: [...(activityDay.cardio || []), ...cardioEntries],
     };
-    await saveActivityDay(clientId, tk, merged);
+    await saveActivityDay(clientId, logKey, merged);
   }
 
   if (loading) {
@@ -66,6 +69,7 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
         session={activeSession}
         workouts={workouts}
         clientId={clientId}
+        logDate={logKey}
         onBack={() => setScreen("sessions")}
         onSave={async (entry, cardioForActivity) => {
           await persistWorkout(entry);
@@ -113,6 +117,12 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
         {program.sessions.length} session{program.sessions.length === 1 ? "" : "s"} in rotation
       </p>
 
+      {backdated && (
+        <div style={{ background: C.amberTint, border: `1px solid ${C.amber}`, borderRadius: 12, padding: "10px 12px", marginBottom: 16, fontSize: 12.5, color: C.amber, fontWeight: 600 }}>
+          Logging a session for {fmtNice(logKey)}. Pick the session they did and fill it in.
+        </div>
+      )}
+
       <button onClick={() => setScreen("history")} style={{ width: "100%", background: "none", border: "none", padding: 0, marginBottom: 18 }}>
         <Card style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -152,13 +162,15 @@ export default function Train({ clientId, viewerRole, viewerName, viewingClientN
   );
 }
 
-function LogSession({ session, workouts, clientId, onBack, onSave, viewerRole, viewerName }) {
+function LogSession({ session, workouts, clientId, logDate, onBack, onSave, viewerRole, viewerName }) {
+  const dayKey = logDate || todayKey();
+  const backdated = dayKey !== todayKey();
   // Find the most recent previous logged performance for each exercise name
-  // (ignores anything already logged today, so "last time" means the prior session).
+  // (ignores anything already logged on the day being entered, so "last time" means the prior session).
   function lastPerformanceFor(name) {
     const key = name.trim().toLowerCase();
     for (const w of workouts) {
-      if (w.date === todayKey()) continue;
+      if (w.date === dayKey) continue;
       const match = (w.rows || []).find((r) => r.name.trim().toLowerCase() === key);
       if (match) {
         const realSets = (match.sets || []).filter((s) => s.weight || s.reps);
@@ -194,7 +206,7 @@ function LogSession({ session, workouts, clientId, onBack, onSave, viewerRole, v
   }
 
   // --- Resume: keep an in-progress draft on this device so leaving mid-session doesn't lose it. ---
-  const draftKey = `bnc-draft-${clientId}-${session.id}-${todayKey()}`;
+  const draftKey = `bnc-draft-${clientId}-${session.id}-${dayKey}`;
   function clearDraft() {
     try { localStorage.removeItem(draftKey); } catch (e) {}
   }
@@ -220,7 +232,7 @@ function LogSession({ session, workouts, clientId, onBack, onSave, viewerRole, v
   // Autosave the draft whenever anything changes.
   useEffect(() => {
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ rows, cardioRows, notes, date: todayKey() }));
+      localStorage.setItem(draftKey, JSON.stringify({ rows, cardioRows, notes, date: dayKey }));
     } catch (e) {}
   }, [rows, cardioRows, notes]);
 
@@ -290,7 +302,7 @@ function LogSession({ session, workouts, clientId, onBack, onSave, viewerRole, v
       .map((c) => ({ type: c.type || "Cardio", minutes: Number(c.actualMinutes) || Number(c.minutes) || 0, note: c.note || "" }));
     const entry = {
       sessionName: session.name,
-      date: todayKey(),
+      date: dayKey,
       rows: rows.map(({ exerciseId, name, sets, note, done }) => ({ exerciseId, name, sets, note, done })),
       cardio: doneCardio,
       notes,
@@ -339,6 +351,12 @@ function LogSession({ session, workouts, clientId, onBack, onSave, viewerRole, v
       <p style={{ fontSize: 13, color: C.graphite, marginLeft: 30, marginBottom: 16 }}>
         {completedCount}/{rows.length} exercises complete {viewerRole === "trainer" ? "· logging together" : ""}
       </p>
+
+      {backdated && (
+        <div style={{ background: C.amberTint, border: `1px solid ${C.amber}`, borderRadius: 12, padding: "10px 12px", marginBottom: 14, fontSize: 12.5, color: C.amber, fontWeight: 600 }}>
+          Logging this session for {fmtNice(dayKey)}.
+        </div>
+      )}
 
       {restored && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.pineTint, border: `1px solid ${C.pine}`, borderRadius: 12, padding: "10px 12px", marginBottom: 14 }}>

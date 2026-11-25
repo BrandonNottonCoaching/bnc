@@ -188,6 +188,17 @@ export function startOfWeekKey() {
   return addDaysKey(todayKey(), -daysSinceMonday);
 }
 
+// The Monday-start keys for the last n weeks, most recent first.
+export function lastNWeekStarts(n) {
+  const out = [];
+  let k = startOfWeekKey();
+  for (let i = 0; i < n; i++) {
+    out.push(k);
+    k = addDaysKey(k, -7);
+  }
+  return out;
+}
+
 // Colour + label for a 0-100 score. Green 80+, amber 50-79, red under 50.
 export function scoreColour(score) {
   if (score >= 80) return C.pine;
@@ -203,36 +214,41 @@ export function scoreLabel(score) {
 /* Works out a weekly adherence score out of 100 from the data the app already has.
    Each area is scored 0-100, then blended by weight (training 30, food 30, steps 25, cardio 15).
    Cardio is only counted when the program has planned cardio; otherwise its weight drops out. */
-export function computeAdherence({ workouts, program, sessionTarget, nutritionDays, activityDays, stepGoal, trackSteps = true, trackFood = true }) {
-  const weekStart = startOfWeekKey();
+export function computeAdherence({ workouts, program, sessionTarget, nutritionDays, activityDays, stepGoal, trackSteps = true, trackFood = true, weekStart }) {
+  const ws = weekStart || startOfWeekKey();
+  const wsEnd = addDaysKey(ws, 6);
   const today = todayKey();
-  const [wy, wm, wd] = weekStart.split("-").map(Number);
-  const [ty, tm, td] = today.split("-").map(Number);
-  const dayCount = Math.round((new Date(ty, tm - 1, td) - new Date(wy, wm - 1, wd)) / 86400000) + 1;
+  // A finished past week counts all 7 days; the current week only counts up to today.
+  const lastDay = today < wsEnd ? today : wsEnd;
+  const [wy, wm, wd] = ws.split("-").map(Number);
+  const [ly, lm, ld] = lastDay.split("-").map(Number);
+  const dayCount = Math.round((new Date(ly, lm - 1, ld) - new Date(wy, wm - 1, wd)) / 86400000) + 1;
   const elapsed = Math.max(1, Math.min(7, dayCount));
 
+  const inWeek = (date) => date >= ws && date <= wsEnd;
+
   // Training: sessions logged this week vs the coach-set weekly target.
-  const sessionsThisWeek = (workouts || []).filter((w) => w.date >= weekStart).length;
+  const sessionsThisWeek = (workouts || []).filter((w) => inWeek(w.date)).length;
   const target = Math.max(1, Number(sessionTarget) || 1);
   const trainingScore = Math.min(100, Math.round((sessionsThisWeek / target) * 100));
 
   // Food tracking: days a meal was logged (just for logging, not hitting the numbers).
   const foodDays = (nutritionDays || []).filter(
-    (d) => d.date >= weekStart && Array.isArray(d.meals) && d.meals.length > 0
+    (d) => inWeek(d.date) && Array.isArray(d.meals) && d.meals.length > 0
   ).length;
   const foodScore = Math.min(100, Math.round((foodDays / elapsed) * 100));
 
   // Steps: days the step goal was hit.
   const goal = Number(stepGoal) || 0;
   const stepsDays = (activityDays || []).filter(
-    (d) => d.date >= weekStart && goal > 0 && Number(d.steps || 0) >= goal
+    (d) => inWeek(d.date) && goal > 0 && Number(d.steps || 0) >= goal
   ).length;
   const stepsScore = Math.min(100, Math.round((stepsDays / elapsed) * 100));
 
   // Cardio: cardio sessions done this week vs cardio planned in the program.
   const plannedCardio = (program || []).reduce((n, s) => n + ((s.cardio || []).length), 0);
   const doneCardio = (activityDays || [])
-    .filter((d) => d.date >= weekStart)
+    .filter((d) => inWeek(d.date))
     .reduce((n, d) => n + ((d.cardio || []).length), 0);
   const cardioApplicable = plannedCardio > 0;
   const cardioScore = cardioApplicable ? Math.min(100, Math.round((doneCardio / plannedCardio) * 100)) : 0;

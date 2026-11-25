@@ -42,10 +42,17 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [hideNav, setHideNav] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [focusDate, setFocusDate] = useState(null);
 
   function showToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(""), 1800);
+  }
+
+  // Switch tab, optionally opening it on a specific date (used by the history day-tap).
+  function goTab(t, date) {
+    setFocusDate(date || null);
+    setTab(t);
   }
 
   useEffect(() => {
@@ -203,7 +210,7 @@ export default function App() {
       />
 
       {tab === "home" && (
-        <Home_ clientId={dataClientId} clientName={viewingName} isTrainerViewing={isTrainerViewing} goTab={setTab} />
+        <Home_ clientId={dataClientId} clientName={viewingName} isTrainerViewing={isTrainerViewing} goTab={goTab} />
       )}
       {tab === "train" && (
         <Train
@@ -213,12 +220,13 @@ export default function App() {
           viewingClientName={viewingName}
           showToast={showToast}
           onFullscreenChange={setHideNav}
+          logDate={focusDate}
         />
       )}
-      {tab === "nutrition" && <Nutrition clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
-      {tab === "activity" && <Activity clientId={dataClientId} showToast={showToast} />}
+      {tab === "nutrition" && <Nutrition clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} initialDate={focusDate} />}
+      {tab === "activity" && <Activity clientId={dataClientId} showToast={showToast} initialDate={focusDate} />}
       {tab === "checkin" && <CheckIn clientId={dataClientId} viewerRole={currentUser.role} showToast={showToast} />}
-      {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} />}
+      {tab === "progress" && <Progress clientId={dataClientId} showToast={showToast} goTab={goTab} />}
       {tab === "photos" && <Photos clientId={dataClientId} showToast={showToast} />}
       {tab === "shop" && <Shop viewerRole={currentUser.role} showToast={showToast} />}
       {tab === "plan" && (
@@ -231,7 +239,7 @@ export default function App() {
         />
       )}
 
-      {!hideNav && tab !== "plan" && <BottomNav tabs={tabs} active={tab} onChange={setTab} />}
+      {!hideNav && tab !== "plan" && <BottomNav tabs={tabs} active={tab} onChange={(t) => goTab(t)} />}
       {showProfileMenu && <ProfileMenuSheet user={currentUser} onClose={() => setShowProfileMenu(false)} onLogout={handleLogout} />}
       <Toast text={toast} />
     </Frame>

@@ -13,9 +13,9 @@ function stepColour(steps, goal) {
   return C.gold;                  // yellow: well short
 }
 
-export default function Activity({ clientId, showToast }) {
+export default function Activity({ clientId, showToast, initialDate }) {
   const [stepGoal, setStepGoal] = useState(8000);
-  const [dateKey, setDateKey] = useState(todayKey());
+  const [dateKey, setDateKey] = useState(initialDate || todayKey());
   const [day, setDay] = useState({ steps: 0, cardio: [] });
   const [week, setWeek] = useState([]);
   const [loading, setLoading] = useState(true);

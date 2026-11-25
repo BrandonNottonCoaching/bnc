@@ -3,8 +3,9 @@ import { X, Trophy, TrendingUp } from "lucide-react";
 import { C, todayKey, fmtNice, fmtShort, computeStrengthStats } from "./helpers";
 import { Card, SectionLabel, GhostButton, PrimaryButton, TextField, Sheet, EmptyState } from "./ui";
 import { listWorkouts, listBodyweight, addBodyweight, deleteBodyweight } from "./api";
+import AdherenceHistory from "./AdherenceHistory";
 
-export default function Progress({ clientId, showToast }) {
+export default function Progress({ clientId, showToast, goTab }) {
   const [loading, setLoading] = useState(true);
   const [workouts, setWorkouts] = useState([]);
   const [entries, setEntries] = useState([]);
@@ -63,6 +64,8 @@ export default function Progress({ clientId, showToast }) {
     <div style={{ padding: "18px 18px 90px" }}>
       <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 22, color: C.ink, margin: 0 }}>Progress</h2>
       <p style={{ fontSize: 13.5, color: C.graphite, marginTop: 2, marginBottom: 18 }}>Strength and body weight, tracked from day one</p>
+
+      <AdherenceHistory clientId={clientId} goTab={goTab} />
 
       <SectionLabel>Body weight</SectionLabel>
       <Card>

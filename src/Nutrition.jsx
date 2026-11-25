@@ -9,10 +9,10 @@ import { FOODS } from "./foods";
 const r = (n) => Math.round(Number(n) || 0);
 const r1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
 
-export default function Nutrition({ clientId, viewerRole, showToast }) {
+export default function Nutrition({ clientId, viewerRole, showToast, initialDate }) {
   const [loading, setLoading] = useState(true);
   const [goal, setGoal] = useState({ cal: 2200, protein: 160, carb: 220, fat: 70 });
-  const [dateKey, setDateKey] = useState(todayKey());
+  const [dateKey, setDateKey] = useState(initialDate || todayKey());
   const [meals, setMeals] = useState([]);
   const [savedFoods, setSavedFoods] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -117,7 +117,7 @@ export default function Nutrition({ clientId, viewerRole, showToast }) {
           </Card>
 
           <SectionLabel right={<button onClick={() => setShowAdd(true)} style={{ background: "none", border: "none", color: C.pine, fontWeight: 700, fontSize: 12.5, display: "flex", alignItems: "center", gap: 4 }}><Plus size={14} />Add meal</button>}>
-            Logged today
+            {dateKey === todayKey() ? "Logged today" : "Logged"}
           </SectionLabel>
 
           {meals.length === 0 && <EmptyState icon={Apple} title="Nothing logged yet" sub="Tap Add meal to log food." />}
